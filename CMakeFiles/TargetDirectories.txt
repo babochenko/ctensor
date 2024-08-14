@@ -1,3 +1,0 @@
-/Users/denisbabochenko/Developer/ml-from-scratch/CMakeFiles/MyCppProject.dir
-/Users/denisbabochenko/Developer/ml-from-scratch/CMakeFiles/edit_cache.dir
-/Users/denisbabochenko/Developer/ml-from-scratch/CMakeFiles/rebuild_cache.dir
