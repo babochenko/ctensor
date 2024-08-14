@@ -1,0 +1,9 @@
+# build files
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
+# bin
+MyCppProject
+
