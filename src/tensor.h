@@ -22,6 +22,7 @@ namespace tensor {
   };
 
   std::unique_ptr<tensor::Tensor> arange(int start, int endExclusive);
+  std::unique_ptr<tensor::Tensor> zeros_like(std::vector<int>);
 
 }
 
