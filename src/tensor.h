@@ -1,20 +1,27 @@
 #pragma once
 
 #include <string>
+#include <vector>
+#include <iostream>
+#include <memory>
 
 namespace tensor {
 
   class Tensor {
-    private:
-    int start;
-    int end;
-
     public:
-    Tensor(int start, int end);
-    std::string toString();
+    void print(std::ostream &os) {
+      os << str();
+    }
+
+    virtual std::string str();
+
+    friend std::ostream& operator<<(std::ostream &os, Tensor &t) {
+      t.print(os);
+      return os;
+    }
   };
 
-  tensor::Tensor arange(int start, int endExclusive);
+  std::unique_ptr<tensor::Tensor> arange(int start, int endExclusive);
 
 }
 

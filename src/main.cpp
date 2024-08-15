@@ -1,10 +1,11 @@
 #include <iostream>
+#include <memory>
 
 #include "tensor.h"
 
 int main() {
-  tensor::Tensor t = tensor::arange(0, 10);
-  std::cout << t.toString() << std::endl;
+  std::unique_ptr<tensor::Tensor> t = tensor::arange(3, 7);
+  std::cout << *t << std::endl;
   return 0;
 }
 

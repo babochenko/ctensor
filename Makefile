@@ -4,5 +4,8 @@ build:
 clean:
 	rm -rf build
 
+run:
+	./build/ctensor
+
 all: build
 
