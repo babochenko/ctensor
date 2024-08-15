@@ -1,8 +1,10 @@
-#include "myclass.h"
+#include <iostream>
+
+#include "tensor.h"
 
 int main() {
-  Portfolio obj(11, "hustomer");
-  obj.calculate();
+  tensor::Tensor t = tensor::arange(0, 10);
+  std::cout << t.toString() << std::endl;
   return 0;
 }
 

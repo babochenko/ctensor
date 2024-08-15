@@ -12,5 +12,5 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 include_directories(include)
 
 # Add the executable
-add_executable(MyCppProject src/main.cpp src/myclass.cpp)
+add_executable(MyCppProject src/main.cpp src/tensor.cpp)
 
