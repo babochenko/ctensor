@@ -54,7 +54,53 @@ namespace tensor {
     return ss.str();
   }
 
-  std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+  std::shared_ptr<Tensor> op_visit_tensor_value(
+    std::shared_ptr<Tensor> tensor1,
+    float t2,
+    std::function<std::shared_ptr<Tensor>(std::shared_ptr<Tensor>, float)> t,
+    std::function<float(float, float)> v
+  ) {
+
+    auto dim = tensor1->shape[0];
+
+    return std::visit([&t, &v, t2, dim](auto&& t1) {
+      using V1 = std::decay_t<decltype(t1[0])>;
+      if constexpr (std::is_same_v<V1, std::shared_ptr<Tensor>>) {
+        std::vector<std::shared_ptr<Tensor>> data;
+        data.reserve(dim);
+
+        for (size_t i = 0; i < t1.size(); i++) {
+          auto x = t1[i];
+          auto res = t(t1[i], t2);
+          data.push_back(res);
+        }
+
+        return std::make_shared<PTensor>(data);
+
+      } else if constexpr (std::is_same_v<V1, float>) {
+        std::vector<float> data;
+        data.reserve(dim);
+
+        for (size_t i = 0; i < t1.size(); i++) {
+          auto res = v(t1[i], t2);
+          data.push_back(res);
+        }
+
+        return std::make_shared<PTensor>(data);
+      } else {
+        std::vector<float> data;
+        return std::make_shared<PTensor>(data);
+      }
+    }, tensor1->vector);
+  }
+
+  std::shared_ptr<Tensor> op_visit_tensors(
+    std::shared_ptr<Tensor> tensor1,
+    std::shared_ptr<Tensor> tensor2,
+    std::function<std::shared_ptr<Tensor>(std::shared_ptr<Tensor>, std::shared_ptr<Tensor>)> t,
+    std::function<float(float, float)> v
+  ) {
+
     if (tensor1->shape != tensor2->shape) {
       throw std::invalid_argument((std::stringstream()
             << "shape mismatch: " << tensor1->shape_str() << " and " << tensor2->shape_str()).str());
@@ -62,7 +108,7 @@ namespace tensor {
 
     auto dim = tensor1->shape[0];
 
-    return std::visit([dim](auto&& t1, auto&& t2) {
+    return std::visit([&t, &v, dim](auto&& t1, auto&& t2) {
       using V1 = std::decay_t<decltype(t1[0])>;
       using V2 = std::decay_t<decltype(t2[0])>;
       if constexpr (std::is_same_v<V1, std::shared_ptr<Tensor>> && std::is_same_v<V2, std::shared_ptr<Tensor>>) {
@@ -71,8 +117,8 @@ namespace tensor {
 
         for (size_t i = 0; i < t1.size(); i++) {
           auto x = t1[i];
-          auto sum = t1[i] + t2[i];
-          data.push_back(sum);
+          auto res = t(t1[i], t2[i]);
+          data.push_back(res);
         }
 
         return std::make_shared<PTensor>(data);
@@ -82,8 +128,8 @@ namespace tensor {
         data.reserve(dim);
 
         for (size_t i = 0; i < t1.size(); i++) {
-          auto sum = t1[i] + t2[i];
-          data.push_back(sum);
+          auto res = v(t1[i], t2[i]);
+          data.push_back(res);
         }
 
         return std::make_shared<PTensor>(data);
@@ -92,6 +138,18 @@ namespace tensor {
         return std::make_shared<PTensor>(data);
       }
     }, tensor1->vector, tensor2->vector);
+  }
+
+  std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+    return op_visit_tensors(tensor1, tensor2, [](auto t1, auto t2) { return t1 + t2; }, [](auto t1, auto t2) { return t1 + t2; });
+  }
+
+  std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor> tensor, float v) {
+    return op_visit_tensor_value(tensor, v, [](auto t1, auto t2) { return t1 + t2; }, [](auto t1, auto t2) { return t1 + t2; });
+  }
+
+  std::shared_ptr<Tensor> operator+(float v, std::shared_ptr<Tensor> tensor) {
+    return tensor + v;
   }
 
   std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor) {
@@ -126,6 +184,42 @@ namespace tensor {
         return std::make_shared<PTensor>(data);
       }
     }, tensor->vector);
+  }
+
+  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+    return tensor1 + (-tensor2);
+  }
+
+  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor, float v) {
+    return tensor + (-v);
+  }
+
+  std::shared_ptr<Tensor> operator-(float v, std::shared_ptr<Tensor> tensor) {
+    return tensor - v;
+  }
+
+  std::shared_ptr<Tensor> operator*(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+    return op_visit_tensors(tensor1, tensor2, [](auto t1, auto t2) { return t1 * t2; }, [](auto t1, auto t2) { return t1 * t2; });
+  }
+
+  std::shared_ptr<Tensor> operator*(std::shared_ptr<Tensor> tensor, float v) {
+    return op_visit_tensor_value(tensor, v, [](auto t1, auto t2) { return t1 * t2; }, [](auto t1, auto t2) { return t1 * t2; });
+  }
+
+  std::shared_ptr<Tensor> operator*(float v, std::shared_ptr<Tensor> tensor) {
+    return tensor * v;
+  }
+
+  std::shared_ptr<Tensor> operator/(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+    return op_visit_tensors(tensor1, tensor2, [](auto t1, auto t2) { return t1 / t2; }, [](auto t1, auto t2) { return t1 / t2; });
+  }
+
+  std::shared_ptr<Tensor> operator/(std::shared_ptr<Tensor> tensor, float v) {
+    return op_visit_tensor_value(tensor, v, [](auto t1, auto t2) { return t1 / t2; }, [](auto t1, auto t2) { return t1 / t2; });
+  }
+
+  std::shared_ptr<Tensor> operator/(float v, std::shared_ptr<Tensor> tensor) {
+    return tensor / v;
   }
 
   std::ostream& operator<<(std::ostream &os, PTensor &ts) {

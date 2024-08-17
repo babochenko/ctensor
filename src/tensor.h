@@ -39,8 +39,23 @@ namespace tensor {
     }
   };
 
-  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor);
   std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2);
+  std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor> tensor, float v);
+  std::shared_ptr<Tensor> operator+(float v, std::shared_ptr<Tensor> tensor);
+
+  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor);
+
+  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2);
+  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor, float v);
+  std::shared_ptr<Tensor> operator-(float v, std::shared_ptr<Tensor> tensor);
+
+  std::shared_ptr<Tensor> operator*(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2);
+  std::shared_ptr<Tensor> operator*(std::shared_ptr<Tensor> tensor, float v);
+  std::shared_ptr<Tensor> operator*(float v, std::shared_ptr<Tensor> tensor);
+
+  std::shared_ptr<Tensor> operator/(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2);
+  std::shared_ptr<Tensor> operator/(std::shared_ptr<Tensor> tensor, float v);
+  std::shared_ptr<Tensor> operator/(float v, std::shared_ptr<Tensor> tensor);
 
   std::shared_ptr<tensor::Tensor> arange(int start, int endExclusive);
   std::shared_ptr<tensor::Tensor> zeros(std::vector<int> &shape);
