@@ -8,8 +8,12 @@ int main() {
   std::cout << *t << std::endl;
 
   std::vector<int> shape({3,3,3});
-  auto t1 = tensor::zeros_like(shape);
-  std::cout << *t1 << std::endl;
+
+  t = tensor::ones(shape);
+  std::cout << *t << std::endl;
+
+  t = tensor::random::uniform(0.0, 3.0, shape);
+  std::cout << *t << std::endl;
 
   return 0;
 }

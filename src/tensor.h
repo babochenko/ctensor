@@ -23,7 +23,12 @@ namespace tensor {
   };
 
   std::unique_ptr<tensor::Tensor> arange(int start, int endExclusive);
-  std::unique_ptr<tensor::Tensor> zeros_like(std::vector<int> &shape);
+  std::unique_ptr<tensor::Tensor> zeros(std::vector<int> &shape);
+  std::unique_ptr<tensor::Tensor> ones(std::vector<int> &shape);
 
+  namespace random {
+    std::unique_ptr<tensor::Tensor> uniform(float min, float max, std::vector<int> &shape);
+    std::unique_ptr<tensor::Tensor> uniform(std::vector<int> &shape);
+  }
 }
 

@@ -3,19 +3,20 @@
 #include <vector>
 #include <memory>
 #include <stdexcept>
+#include <random>
 
 #include "tensor.h"
 
 namespace tensor {
 
   class PTensor : public Tensor {
-    using vec = std::variant<std::vector<int>, std::vector<std::unique_ptr<Tensor>>>;
+    using vec = std::variant<std::vector<float>, std::vector<std::unique_ptr<Tensor>>>;
 
     private:
     vec v;
 
     public:
-    PTensor(std::vector<int> v) : v(v) {}
+    PTensor(std::vector<float> v) : v(v) {}
     PTensor(std::vector<std::unique_ptr<Tensor>> v) : v(std::move(v)) {}
     std::string _str(int depth) override;
     std::string str() override;
@@ -69,18 +70,24 @@ namespace tensor {
   }
 
   std::unique_ptr<Tensor> arange(int start, int endExclusive) {
-    auto v = std::make_unique<std::vector<int> >(0);
+    auto v = std::make_unique<std::vector<float>>(0);
     if (endExclusive > start) {
-      for (auto i=start; i < endExclusive; i++) {
-        v->push_back(i);
+      for (float i=start; i < endExclusive; i++) {
+        v->push_back(i + 0);
       }
     }
     return std::make_unique<PTensor>(*v);
   }
 
-  std::unique_ptr<Tensor> _zeros_like(std::vector<int> &shape, int depth) {
+  std::unique_ptr<Tensor> _fill(std::vector<int> &shape, int depth, std::function<float()> fill) {
     if (depth == shape.size() - 1) {
-      return std::make_unique<PTensor>(std::vector<int>(shape[depth], 0));
+      std::vector<float> v;
+      v.reserve(shape[depth]);
+      for (int i = 0; i < shape[depth]; i++) {
+        v.push_back(fill());
+      }
+
+      return std::make_unique<PTensor>(v);
     }
 
     auto dim = shape[depth];
@@ -88,13 +95,13 @@ namespace tensor {
     data.reserve(dim);
 
     for (auto i = 0; i < dim; i++) {
-      auto v = tensor::_zeros_like(shape, depth + 1);
+      auto v = tensor::_fill(shape, depth + 1, fill);
       data.push_back(std::move(v));
     }
     return std::make_unique<PTensor>(std::move(data));
   }
 
-  std::unique_ptr<Tensor> zeros_like(std::vector<int> &shape) {
+  std::unique_ptr<Tensor> fill(std::vector<int> &shape, std::function<float()> fill) {
     if (shape.empty()) {
       throw std::invalid_argument("empty shape");
     }
@@ -103,7 +110,29 @@ namespace tensor {
         throw std::invalid_argument("non-positive shape");
       }
     }
-    return tensor::_zeros_like(shape, 0);
+    return tensor::_fill(shape, 0, fill);
+  }
+
+  std::unique_ptr<Tensor> zeros(std::vector<int> &shape) {
+    return fill(shape, []() { return 0.0; });
+  }
+
+  std::unique_ptr<Tensor> ones(std::vector<int> &shape) {
+    return fill(shape, []() { return 1.0; });
+  }
+
+  namespace random {
+    std::unique_ptr<Tensor> uniform(float min, float max, std::vector<int> &shape) {
+      std::random_device rd;
+      std::mt19937 gen(rd());
+      std::uniform_real_distribution<float> norm(min, max);
+
+      return fill(shape, [&norm, &gen]() { return norm(gen); });
+    }
+
+    std::unique_ptr<Tensor> uniform(std::vector<int> &shape) {
+      return uniform(0.0, 1.0, shape);
+    }
   }
 }
 
