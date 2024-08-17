@@ -9,7 +9,7 @@ int main() {
 
   auto t1 = tensor::ones(shape);
   auto t2 = tensor::ones(shape);
-  std::cout << *(t1 + t2) << std::endl;
+  std::cout << *-(t1 + t2) << std::endl;
 
   return 0;
 }

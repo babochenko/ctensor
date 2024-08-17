@@ -94,6 +94,40 @@ namespace tensor {
     }, tensor1->vector, tensor2->vector);
   }
 
+  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor) {
+    auto dim = tensor->shape[0];
+
+    return std::visit([dim](auto&& t) {
+      using V1 = std::decay_t<decltype(t[0])>;
+      if constexpr (std::is_same_v<V1, std::shared_ptr<Tensor>>) {
+        std::vector<std::shared_ptr<Tensor>> data;
+        data.reserve(dim);
+
+        for (size_t i = 0; i < t.size(); i++) {
+          auto x = t[i];
+          auto sum = -t[i];
+          data.push_back(sum);
+        }
+
+        return std::make_shared<PTensor>(data);
+
+      } else if constexpr (std::is_same_v<V1, float>) {
+        std::vector<float> data;
+        data.reserve(dim);
+
+        for (size_t i = 0; i < t.size(); i++) {
+          auto sum = -t[i];
+          data.push_back(sum);
+        }
+
+        return std::make_shared<PTensor>(data);
+      } else {
+        std::vector<float> data;
+        return std::make_shared<PTensor>(data);
+      }
+    }, tensor->vector);
+  }
+
   std::ostream& operator<<(std::ostream &os, PTensor &ts) {
     os << ts.str();
     return os;

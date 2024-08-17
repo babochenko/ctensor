@@ -39,6 +39,7 @@ namespace tensor {
     }
   };
 
+  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor);
   std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2);
 
   std::shared_ptr<tensor::Tensor> arange(int start, int endExclusive);
