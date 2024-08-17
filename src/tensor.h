@@ -9,8 +9,13 @@ namespace tensor {
 
   class Tensor {
     public:
+    std::vector<int> shape;
+
+    Tensor(std::vector<int> s) : shape(s) {}
+
     virtual std::string _str(int depth);
     virtual std::string str();
+    virtual std::string shape_str();
 
     void print(std::ostream &os) {
       os << str();

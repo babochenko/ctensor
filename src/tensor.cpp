@@ -9,6 +9,20 @@
 
 namespace tensor {
 
+  std::vector<int> _tensor_deep(std::vector<std::unique_ptr<Tensor>> &v) {
+    auto prev_shape = v[0]->shape;
+
+    std::vector<int> shape;
+    shape.reserve(prev_shape.size() + 1);
+
+    shape.push_back(v.size());
+    for (int i = 0; i < prev_shape.size(); i++) {
+      shape.push_back(prev_shape[i]);
+    }
+
+    return shape;
+  }
+
   class PTensor : public Tensor {
     using vec = std::variant<std::vector<float>, std::vector<std::unique_ptr<Tensor>>>;
 
@@ -16,8 +30,9 @@ namespace tensor {
     vec v;
 
     public:
-    PTensor(std::vector<float> v) : v(v) {}
-    PTensor(std::vector<std::unique_ptr<Tensor>> v) : v(std::move(v)) {}
+    PTensor(std::vector<float> &v) : Tensor(std::vector<int>(1, v.size())) , v(v) {}
+    PTensor(std::vector<std::unique_ptr<Tensor>> &v) : Tensor(_tensor_deep(v)), v(std::move(v)) {}
+
     std::string _str(int depth) override;
     std::string str() override;
   };
@@ -28,6 +43,19 @@ namespace tensor {
 
   std::string Tensor::str() {
     return "Tensor()";
+  }
+
+  std::string Tensor::shape_str() {
+    std::stringstream ss;
+    ss << "(";
+    for (size_t i = 0; i < shape.size(); i++) {
+      ss << shape[i];
+      if (i < shape.size() - 1) {
+        ss << ", ";
+      }
+    }
+    ss << ")";
+    return ss.str();
   }
 
   std::ostream& operator<<(std::ostream &os, PTensor &ts) {
@@ -98,7 +126,7 @@ namespace tensor {
       auto v = tensor::_fill(shape, depth + 1, fill);
       data.push_back(std::move(v));
     }
-    return std::make_unique<PTensor>(std::move(data));
+    return std::make_unique<PTensor>(data);
   }
 
   std::unique_ptr<Tensor> fill(std::vector<int> &shape, std::function<float()> fill) {
