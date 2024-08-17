@@ -1,5 +1,3 @@
-#include <iostream>
-
 #include <string>
 #include <sstream>
 #include <vector>
@@ -10,39 +8,65 @@
 
 namespace tensor {
 
-  template <typename T>
   class PTensor : public Tensor {
+    using vec = std::variant<std::vector<int>, std::vector<std::unique_ptr<Tensor>>>;
+
     private:
-    std::vector<T> ts;
+    vec v;
 
     public:
-    PTensor(std::vector<T> ts) : Tensor(), ts(ts) {}
+    PTensor(std::vector<int> v) : v(v) {}
+    PTensor(std::vector<std::unique_ptr<Tensor>> v) : v(std::move(v)) {}
+    std::string _str(int depth) override;
     std::string str() override;
   };
+
+  std::string Tensor::_str(int depth) {
+    return "Tensor()";
+  }
 
   std::string Tensor::str() {
     return "Tensor()";
   }
 
-  template <typename T>
-  std::ostream& operator<<(std::ostream &os, PTensor<T> &ts) {
+  std::ostream& operator<<(std::ostream &os, PTensor &ts) {
     os << ts.str();
     return os;
   }
 
-  template <typename T>
-  std::string PTensor<T>::str() {
+  std::string PTensor::_str(int depth) {
     std::stringstream ss;
     ss << "[";
-    for (auto i = 0; i < ts.size(); i++) {
-      ss << ts.at(i);
-      if (i < ts.size() - 1) {
-        ss << ",";
+    std::visit([&ss, depth](auto&& vec) {
+      for (auto i = 0; i < vec.size(); i++) {
+        using VecT = std::decay_t<decltype(vec[i])>;
+
+        if constexpr (std::is_same_v<VecT, std::unique_ptr<Tensor>>) {
+          for (int j = 0; j < depth + 1; j++) {
+            if (i > 0) {
+              ss << " ";
+            }
+          }
+
+          ss << vec[i]->_str(depth + 1);
+          if (i < vec.size() - 1) {
+            ss << "," << std::endl;
+          }
+        } else {
+          ss << vec[i];
+          if (i < vec.size() - 1) {
+            ss << ",";
+          }
+        }
       }
-    }
+    }, v);
     ss << "]";
     return ss.str();
   } 
+
+  std::string PTensor::str() {
+    return _str(0);
+  }
 
   std::unique_ptr<Tensor> arange(int start, int endExclusive) {
     auto v = std::make_unique<std::vector<int> >(0);
@@ -51,26 +75,26 @@ namespace tensor {
         v->push_back(i);
       }
     }
-    return std::make_unique<PTensor<int> >(*v);
+    return std::make_unique<PTensor>(*v);
   }
 
-  template <typename T>
-  std::unique_ptr<tensor::PTensor<T>> _zeros_like(std::vector<int> &shape, int depth) {
+  std::unique_ptr<Tensor> _zeros_like(std::vector<int> &shape, int depth) {
     if (depth == shape.size() - 1) {
-      return std::make_unique<PTensor<T>>(std::vector<T>(shape[depth], T{}));
+      return std::make_unique<PTensor>(std::vector<int>(shape[depth], 0));
     }
 
-    auto size = shape[depth];
-    std::vector<std::unique_ptr<tensor::PTensor<T>>> data(size);
+    auto dim = shape[depth];
+    std::vector<std::unique_ptr<Tensor>> data;
+    data.reserve(dim);
 
-    for (auto i = 0; i < size; i++) {
-      auto v = tensor::_zeros_like<T>(shape, size + 1);
-      data.push_back(v);
+    for (auto i = 0; i < dim; i++) {
+      auto v = tensor::_zeros_like(shape, depth + 1);
+      data.push_back(std::move(v));
     }
-    return std::make_unique<PTensor<std::unique_ptr<PTensor<T>>>>(std::move(data));
+    return std::make_unique<PTensor>(std::move(data));
   }
 
-  std::unique_ptr<tensor::Tensor> zeros_like(std::vector<int> &shape) {
+  std::unique_ptr<Tensor> zeros_like(std::vector<int> &shape) {
     if (shape.empty()) {
       throw std::invalid_argument("empty shape");
     }
@@ -79,7 +103,7 @@ namespace tensor {
         throw std::invalid_argument("non-positive shape");
       }
     }
-    return tensor::_zeros_like<int>(shape, 0);
+    return tensor::_zeros_like(shape, 0);
   }
 }
 
