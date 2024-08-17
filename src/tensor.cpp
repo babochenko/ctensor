@@ -9,7 +9,7 @@
 
 namespace tensor {
 
-  std::vector<int> _tensor_deep(std::vector<std::unique_ptr<Tensor>> &v) {
+  std::vector<int> _shape(std::vector<std::shared_ptr<Tensor>> &v) {
     auto prev_shape = v[0]->shape;
 
     std::vector<int> shape;
@@ -24,14 +24,11 @@ namespace tensor {
   }
 
   class PTensor : public Tensor {
-    using vec = std::variant<std::vector<float>, std::vector<std::unique_ptr<Tensor>>>;
-
-    private:
-    vec v;
+    using vec = std::variant<std::vector<float>, std::vector<std::shared_ptr<Tensor>>>;
 
     public:
-    PTensor(std::vector<float> &v) : Tensor(std::vector<int>(1, v.size())) , v(v) {}
-    PTensor(std::vector<std::unique_ptr<Tensor>> &v) : Tensor(_tensor_deep(v)), v(std::move(v)) {}
+    PTensor(std::vector<float> &v) : Tensor(v, std::vector<int>(1, v.size())) {}
+    PTensor(std::vector<std::shared_ptr<Tensor>> v) : Tensor(v, _shape(v)) {}
 
     std::string _str(int depth) override;
     std::string str() override;
@@ -44,7 +41,6 @@ namespace tensor {
   std::string Tensor::str() {
     return "Tensor()";
   }
-
   std::string Tensor::shape_str() {
     std::stringstream ss;
     ss << "(";
@@ -56,6 +52,46 @@ namespace tensor {
     }
     ss << ")";
     return ss.str();
+  }
+
+  std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+    if (tensor1->shape != tensor2->shape) {
+      throw std::invalid_argument((std::stringstream()
+            << "shape mismatch: " << tensor1->shape_str() << " and " << tensor2->shape_str()).str());
+    }
+
+    auto dim = tensor1->shape[0];
+
+    return std::visit([dim](auto&& t1, auto&& t2) {
+      using V1 = std::decay_t<decltype(t1[0])>;
+      using V2 = std::decay_t<decltype(t2[0])>;
+      if constexpr (std::is_same_v<V1, std::shared_ptr<Tensor>> && std::is_same_v<V2, std::shared_ptr<Tensor>>) {
+        std::vector<std::shared_ptr<Tensor>> data;
+        data.reserve(dim);
+
+        for (size_t i = 0; i < t1.size(); i++) {
+          auto x = t1[i];
+          auto sum = t1[i] + t2[i];
+          data.push_back(sum);
+        }
+
+        return std::make_shared<PTensor>(data);
+
+      } else if constexpr (std::is_same_v<V1, float> && std::is_same_v<V2, float>) {
+        std::vector<float> data;
+        data.reserve(dim);
+
+        for (size_t i = 0; i < t1.size(); i++) {
+          auto sum = t1[i] + t2[i];
+          data.push_back(sum);
+        }
+
+        return std::make_shared<PTensor>(data);
+      } else {
+        std::vector<float> data;
+        return std::make_shared<PTensor>(data);
+      }
+    }, tensor1->vector, tensor2->vector);
   }
 
   std::ostream& operator<<(std::ostream &os, PTensor &ts) {
@@ -70,7 +106,7 @@ namespace tensor {
       for (auto i = 0; i < vec.size(); i++) {
         using VecT = std::decay_t<decltype(vec[i])>;
 
-        if constexpr (std::is_same_v<VecT, std::unique_ptr<Tensor>>) {
+        if constexpr (std::is_same_v<VecT, std::shared_ptr<Tensor>>) {
           for (int j = 0; j < depth + 1; j++) {
             if (i > 0) {
               ss << " ";
@@ -88,7 +124,7 @@ namespace tensor {
           }
         }
       }
-    }, v);
+    }, vector);
     ss << "]";
     return ss.str();
   } 
@@ -97,17 +133,17 @@ namespace tensor {
     return _str(0);
   }
 
-  std::unique_ptr<Tensor> arange(int start, int endExclusive) {
-    auto v = std::make_unique<std::vector<float>>(0);
+  std::shared_ptr<Tensor> arange(int start, int endExclusive) {
+    auto v = std::make_shared<std::vector<float>>(0);
     if (endExclusive > start) {
       for (float i=start; i < endExclusive; i++) {
         v->push_back(i + 0);
       }
     }
-    return std::make_unique<PTensor>(*v);
+    return std::make_shared<PTensor>(*v);
   }
 
-  std::unique_ptr<Tensor> _fill(std::vector<int> &shape, int depth, std::function<float()> fill) {
+  std::shared_ptr<Tensor> _fill(std::vector<int> &shape, int depth, std::function<float()> fill) {
     if (depth == shape.size() - 1) {
       std::vector<float> v;
       v.reserve(shape[depth]);
@@ -115,21 +151,21 @@ namespace tensor {
         v.push_back(fill());
       }
 
-      return std::make_unique<PTensor>(v);
+      return std::make_shared<PTensor>(v);
     }
 
     auto dim = shape[depth];
-    std::vector<std::unique_ptr<Tensor>> data;
+    std::vector<std::shared_ptr<Tensor>> data;
     data.reserve(dim);
 
     for (auto i = 0; i < dim; i++) {
       auto v = tensor::_fill(shape, depth + 1, fill);
-      data.push_back(std::move(v));
+      data.push_back(v);
     }
-    return std::make_unique<PTensor>(data);
+    return std::make_shared<PTensor>(data);
   }
 
-  std::unique_ptr<Tensor> fill(std::vector<int> &shape, std::function<float()> fill) {
+  std::shared_ptr<Tensor> fill(std::vector<int> &shape, std::function<float()> fill) {
     if (shape.empty()) {
       throw std::invalid_argument("empty shape");
     }
@@ -141,16 +177,16 @@ namespace tensor {
     return tensor::_fill(shape, 0, fill);
   }
 
-  std::unique_ptr<Tensor> zeros(std::vector<int> &shape) {
+  std::shared_ptr<Tensor> zeros(std::vector<int> &shape) {
     return fill(shape, []() { return 0.0; });
   }
 
-  std::unique_ptr<Tensor> ones(std::vector<int> &shape) {
+  std::shared_ptr<Tensor> ones(std::vector<int> &shape) {
     return fill(shape, []() { return 1.0; });
   }
 
   namespace random {
-    std::unique_ptr<Tensor> uniform(float min, float max, std::vector<int> &shape) {
+    std::shared_ptr<Tensor> uniform(float min, float max, std::vector<int> &shape) {
       std::random_device rd;
       std::mt19937 gen(rd());
       std::uniform_real_distribution<float> norm(min, max);
@@ -158,7 +194,7 @@ namespace tensor {
       return fill(shape, [&norm, &gen]() { return norm(gen); });
     }
 
-    std::unique_ptr<Tensor> uniform(std::vector<int> &shape) {
+    std::shared_ptr<Tensor> uniform(std::vector<int> &shape) {
       return uniform(0.0, 1.0, shape);
     }
   }

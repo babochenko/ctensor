@@ -4,17 +4,12 @@
 #include "tensor.h"
 
 int main() {
-  auto t = tensor::arange(3, 7);
-  std::cout << *t << std::endl;
 
   std::vector<int> shape({3,4,3});
 
-  t = tensor::ones(shape);
-  std::cout << *t << std::endl;
-
-  t = tensor::random::uniform(0.0, 3.0, shape);
-  std::cout << *t << std::endl;
-  std::cout << t->shape_str() << std::endl;
+  auto t1 = tensor::ones(shape);
+  auto t2 = tensor::ones(shape);
+  std::cout << *(t1 + t2) << std::endl;
 
   return 0;
 }
