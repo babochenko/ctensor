@@ -328,7 +328,7 @@ namespace tensor {
 
             std::visit([&col, i, k, js](auto&& r1, auto&& r2) {
               if constexpr (is_<decltype(r1), V_VEC>() && is_<decltype(r2), V_VEC>()) {
-                auto sum = 0;
+                auto sum = 0.0;
                 for (auto j = 0; j < js; j++) {
                   sum += r1[j] * r2[j];
                 }
