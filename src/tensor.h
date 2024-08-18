@@ -27,10 +27,10 @@ namespace tensor {
     std::shared_ptr<Tensor> flatten();
     std::shared_ptr<Tensor> T();
     std::shared_ptr<Tensor> T(int dim1, int dim2);
+    std::shared_ptr<Tensor> mul(std::shared_ptr<Tensor> other);
 
     virtual std::string _str(int depth);
     virtual std::string str();
-    virtual std::string shape_str();
 
     void print(std::ostream &os) {
       os << str();

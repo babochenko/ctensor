@@ -5,12 +5,13 @@
 
 int main() {
 
-  std::vector<int> shape({2,4});
+  auto s1 = std::vector<int>({2,4});
+  auto t1 = tensor::ones(s1);
 
-  auto t = tensor::ones(shape);
-  std::cout << *t << std::endl;
+  auto s2 = std::vector<int>({4,2});
+  auto t2 = tensor::ones(s2);
 
-  auto t1 = t->T();
+  auto res = t1->mul(t2);
   std::cout << *t1 << std::endl;
 
   return 0;
