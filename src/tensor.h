@@ -31,7 +31,6 @@ namespace tensor {
 
     virtual std::string _str(int depth);
     virtual std::string str();
-
     void print(std::ostream &os) {
       os << str();
     }

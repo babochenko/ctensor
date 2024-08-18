@@ -1,4 +1,6 @@
 #include <iostream>
+#include <typeinfo>
+
 #include <string>
 #include <sstream>
 #include <type_traits>
@@ -15,6 +17,12 @@ namespace tensor {
   using P_VEC = std::vector<TNSR>;
   using V_VEC = std::vector<float>;
   using SHAPE = std::vector<int>;
+
+  template <typename T1, typename T2>
+  constexpr bool is_() {
+    using V = std::decay_t<T1>;
+    return std::is_same_v<V, T2>;
+  } 
 
   SHAPE _shape(P_VEC &v) {
     auto prev_shape = v[0]->shape;
@@ -79,20 +87,18 @@ namespace tensor {
     auto dim = tensor1->shape[0];
 
     return std::visit([&t, &v, t2, dim](auto&& t1) {
-      using V1 = std::decay_t<decltype(t1[0])>;
-      if constexpr (std::is_same_v<V1, TNSR>) {
+      if constexpr (is_<decltype(t1[0]), TNSR>()) {
         P_VEC data;
         data.reserve(dim);
 
         for (size_t i = 0; i < t1.size(); i++) {
-          auto x = t1[i];
           auto res = t(t1[i], t2);
           data.push_back(res);
         }
 
         return tnsr(data);
 
-      } else if constexpr (std::is_same_v<V1, float>) {
+      } else if constexpr (is_<decltype(t1[0]), float>()) {
         V_VEC data;
         data.reserve(dim);
 
@@ -125,9 +131,7 @@ namespace tensor {
     auto dim = tensor1->shape[0];
 
     return std::visit([&t, &v, dim](auto&& t1, auto&& t2) {
-      using V1 = std::decay_t<decltype(t1[0])>;
-      using V2 = std::decay_t<decltype(t2[0])>;
-      if constexpr (std::is_same_v<V1, TNSR> && std::is_same_v<V2, TNSR>) {
+      if constexpr (is_<decltype(t1[0]), TNSR>() && is_<decltype(t2[0]), TNSR>()) {
         P_VEC data;
         data.reserve(dim);
 
@@ -139,7 +143,7 @@ namespace tensor {
 
         return tnsr(data);
 
-      } else if constexpr (std::is_same_v<V1, float> && std::is_same_v<V2, float>) {
+      } else if constexpr (is_<decltype(t1[0]), float>() && is_<decltype(t2[0]), float>()) {
         V_VEC data;
         data.reserve(dim);
 
@@ -172,8 +176,7 @@ namespace tensor {
     auto dim = tensor->shape[0];
 
     return std::visit([dim](auto&& t) {
-      using V1 = std::decay_t<decltype(t[0])>;
-      if constexpr (std::is_same_v<V1, std::shared_ptr<Tensor>>) {
+      if constexpr (is_<decltype(t[0]), TNSR>()) {
         std::vector<std::shared_ptr<Tensor>> data;
         data.reserve(dim);
 
@@ -185,7 +188,7 @@ namespace tensor {
 
         return tnsr(data);
 
-      } else if constexpr (std::is_same_v<V1, float>) {
+      } else if constexpr (is_<decltype(t[0]), float>()) {
         V_VEC data;
         data.reserve(dim);
 
@@ -286,8 +289,7 @@ namespace tensor {
 
     P_VEC cols;
     std::visit([&cols, this] (auto&& v) {
-      using VEC = std::decay_t<decltype(v)>;
-      if constexpr (std::is_same_v<VEC, V_VEC>) {
+      if constexpr (is_<decltype(v), V_VEC>()) {
         cols.reserve(shape[1]);
         for (auto i = 0; i < shape[1]; i++) {
           auto col = V_VEC(shape[0], 0);
@@ -315,32 +317,33 @@ namespace tensor {
     auto is = shape[0];
     auto js = shape[1];
     auto cols = P_VEC();
-    cols.reserve(js);
+    cols.reserve(is);
 
-    for (size_t i = 0; i < shape[0]; i++) {
-      std::visit([i, is, js](auto&& c1, auto&& c2) {
-        using V1 = std::decay_t<decltype(c1)>;
-        using V2 = std::decay_t<decltype(c2)>;
-        if constexpr (std::is_same_v<V1, P_VEC> && std::is_same_v<V2, P_VEC>) {
-          auto row1 = c1[i];
-          auto row2 = c2[i];
+    for (auto i = 0; i < shape[0]; i++) {
+      auto col = V_VEC(is, float{});
 
-          auto col = V_VEC();
-          col.reserve(is);
+      for (auto k = 0; k < shape[0]; k++) {
+        std::visit([&col, i, k, is, js](auto&& c1, auto&& c2) {
+          if constexpr (is_<decltype(c1), P_VEC>() && is_<decltype(c2), P_VEC>()) {
 
-          std::visit([&col, i, js](auto&& r1, auto&& r2) {
-            using V1 = std::decay_t<decltype(r1)>;
-            using V2 = std::decay_t<decltype(r2)>;
-            if constexpr (std::is_same_v<V1, V_VEC> && std::is_same_v<V2, V_VEC>) {
-              auto sum = 0;
-              for (size_t j = 0; j < js; j++) {
-                sum += r1[j] * r2[j];
+            std::visit([&col, i, k, js](auto&& r1, auto&& r2) {
+              if constexpr (is_<decltype(r1), V_VEC>() && is_<decltype(r2), V_VEC>()) {
+                auto sum = 0;
+                for (auto j = 0; j < js; j++) {
+                  sum += r1[j] * r2[j];
+                }
+                col[k] = sum;
+              } else {
+                std::stringstream s;
+                s << "invalid type: " << typeid(r1).name();
+                throw std::invalid_argument(s.str());
               }
-              col[i] = sum;
-            }
-          }, row1->vector, row2->vector);
-        }
-      }, this->vector, t->vector);
+            }, c1[i]->vector, c2[k]->vector);
+
+          }
+        }, this->vector, t->vector);
+      }
+      cols.push_back(tnsr(col));
     }
 
     return tnsr(cols);
@@ -356,9 +359,7 @@ namespace tensor {
     ss << "[";
     std::visit([&ss, depth](auto&& vec) {
       for (auto i = 0; i < vec.size(); i++) {
-        using VecT = std::decay_t<decltype(vec[i])>;
-
-        if constexpr (std::is_same_v<VecT, TNSR>) {
+        if constexpr (is_<decltype(vec[i]), TNSR>()) {
           for (int j = 0; j < depth + 1; j++) {
             if (i > 0) {
               ss << " ";
