@@ -1,6 +1,4 @@
 #include <iostream>
-#include <typeinfo>
-
 #include <string>
 #include <sstream>
 #include <type_traits>
