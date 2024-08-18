@@ -1,5 +1,6 @@
 #include <string>
 #include <sstream>
+#include <type_traits>
 #include <vector>
 #include <memory>
 #include <stdexcept>
@@ -9,7 +10,11 @@
 
 namespace tensor {
 
-  std::vector<int> _shape(std::vector<std::shared_ptr<Tensor>> &v) {
+  using TNSR = std::shared_ptr<Tensor>;
+  using P_VEC = std::vector<TNSR>;
+  using V_VEC = std::vector<float>;
+
+  std::vector<int> _shape(P_VEC &v) {
     auto prev_shape = v[0]->shape;
 
     std::vector<int> shape;
@@ -24,7 +29,7 @@ namespace tensor {
   }
 
   class PTensor : public Tensor {
-    using vec = std::variant<std::vector<float>, std::vector<std::shared_ptr<Tensor>>>;
+    using vec = std::variant<V_VEC, P_VEC>;
 
     public:
     PTensor(std::vector<float> &v) : Tensor(v, std::vector<int>(1, v.size())) {}
@@ -34,6 +39,14 @@ namespace tensor {
     std::string str() override;
   };
 
+  TNSR tnsr(V_VEC data) {
+    return std::make_shared<PTensor>(data);
+  }
+
+  TNSR tnsr(P_VEC data) {
+    return std::make_shared<PTensor>(data);
+  }
+
   std::string Tensor::_str(int depth) {
     return "Tensor()";
   }
@@ -41,6 +54,7 @@ namespace tensor {
   std::string Tensor::str() {
     return "Tensor()";
   }
+
   std::string Tensor::shape_str() {
     std::stringstream ss;
     ss << "(";
@@ -54,10 +68,22 @@ namespace tensor {
     return ss.str();
   }
 
-  std::shared_ptr<Tensor> op_visit_tensor_value(
-    std::shared_ptr<Tensor> tensor1,
+  std::ostream& operator<<(std::ostream &os, V_VEC &vec) {
+    os << "(";
+    for (size_t i = 0; i < vec.size(); i++) {
+      os << vec[i];
+      if (i < vec.size() - 1) {
+        os << ", ";
+      }
+    }
+    os << ")";
+    return os;
+  }
+
+  TNSR op_visit_tensor_value(
+    TNSR tensor1,
     float t2,
-    std::function<std::shared_ptr<Tensor>(std::shared_ptr<Tensor>, float)> t,
+    std::function<TNSR(TNSR, float)> t,
     std::function<float(float, float)> v
   ) {
 
@@ -65,8 +91,8 @@ namespace tensor {
 
     return std::visit([&t, &v, t2, dim](auto&& t1) {
       using V1 = std::decay_t<decltype(t1[0])>;
-      if constexpr (std::is_same_v<V1, std::shared_ptr<Tensor>>) {
-        std::vector<std::shared_ptr<Tensor>> data;
+      if constexpr (std::is_same_v<V1, TNSR>) {
+        P_VEC data;
         data.reserve(dim);
 
         for (size_t i = 0; i < t1.size(); i++) {
@@ -75,10 +101,10 @@ namespace tensor {
           data.push_back(res);
         }
 
-        return std::make_shared<PTensor>(data);
+        return tnsr(data);
 
       } else if constexpr (std::is_same_v<V1, float>) {
-        std::vector<float> data;
+        V_VEC data;
         data.reserve(dim);
 
         for (size_t i = 0; i < t1.size(); i++) {
@@ -86,18 +112,18 @@ namespace tensor {
           data.push_back(res);
         }
 
-        return std::make_shared<PTensor>(data);
+        return tnsr(data);
       } else {
-        std::vector<float> data;
-        return std::make_shared<PTensor>(data);
+        V_VEC data;
+        return tnsr(data);
       }
     }, tensor1->vector);
   }
 
-  std::shared_ptr<Tensor> op_visit_tensors(
-    std::shared_ptr<Tensor> tensor1,
-    std::shared_ptr<Tensor> tensor2,
-    std::function<std::shared_ptr<Tensor>(std::shared_ptr<Tensor>, std::shared_ptr<Tensor>)> t,
+  TNSR op_visit_tensors(
+    TNSR tensor1,
+    TNSR tensor2,
+    std::function<TNSR(TNSR, TNSR)> t,
     std::function<float(float, float)> v
   ) {
 
@@ -111,8 +137,8 @@ namespace tensor {
     return std::visit([&t, &v, dim](auto&& t1, auto&& t2) {
       using V1 = std::decay_t<decltype(t1[0])>;
       using V2 = std::decay_t<decltype(t2[0])>;
-      if constexpr (std::is_same_v<V1, std::shared_ptr<Tensor>> && std::is_same_v<V2, std::shared_ptr<Tensor>>) {
-        std::vector<std::shared_ptr<Tensor>> data;
+      if constexpr (std::is_same_v<V1, TNSR> && std::is_same_v<V2, TNSR>) {
+        P_VEC data;
         data.reserve(dim);
 
         for (size_t i = 0; i < t1.size(); i++) {
@@ -121,10 +147,10 @@ namespace tensor {
           data.push_back(res);
         }
 
-        return std::make_shared<PTensor>(data);
+        return tnsr(data);
 
       } else if constexpr (std::is_same_v<V1, float> && std::is_same_v<V2, float>) {
-        std::vector<float> data;
+        V_VEC data;
         data.reserve(dim);
 
         for (size_t i = 0; i < t1.size(); i++) {
@@ -132,27 +158,27 @@ namespace tensor {
           data.push_back(res);
         }
 
-        return std::make_shared<PTensor>(data);
+        return tnsr(data);
       } else {
-        std::vector<float> data;
-        return std::make_shared<PTensor>(data);
+        V_VEC data;
+        return tnsr(data);
       }
     }, tensor1->vector, tensor2->vector);
   }
 
-  std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+  TNSR operator+(TNSR tensor1, TNSR tensor2) {
     return op_visit_tensors(tensor1, tensor2, [](auto t1, auto t2) { return t1 + t2; }, [](auto t1, auto t2) { return t1 + t2; });
   }
 
-  std::shared_ptr<Tensor> operator+(std::shared_ptr<Tensor> tensor, float v) {
+  TNSR operator+(TNSR tensor, float v) {
     return op_visit_tensor_value(tensor, v, [](auto t1, auto t2) { return t1 + t2; }, [](auto t1, auto t2) { return t1 + t2; });
   }
 
-  std::shared_ptr<Tensor> operator+(float v, std::shared_ptr<Tensor> tensor) {
+  TNSR operator+(float v, TNSR tensor) {
     return tensor + v;
   }
 
-  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor) {
+  TNSR operator-(TNSR tensor) {
     auto dim = tensor->shape[0];
 
     return std::visit([dim](auto&& t) {
@@ -167,10 +193,10 @@ namespace tensor {
           data.push_back(sum);
         }
 
-        return std::make_shared<PTensor>(data);
+        return tnsr(data);
 
       } else if constexpr (std::is_same_v<V1, float>) {
-        std::vector<float> data;
+        V_VEC data;
         data.reserve(dim);
 
         for (size_t i = 0; i < t.size(); i++) {
@@ -178,48 +204,114 @@ namespace tensor {
           data.push_back(sum);
         }
 
-        return std::make_shared<PTensor>(data);
+        return tnsr(data);
       } else {
-        std::vector<float> data;
-        return std::make_shared<PTensor>(data);
+        V_VEC data;
+        return tnsr(data);
       }
     }, tensor->vector);
   }
 
-  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+  TNSR operator-(TNSR tensor1, TNSR tensor2) {
     return tensor1 + (-tensor2);
   }
 
-  std::shared_ptr<Tensor> operator-(std::shared_ptr<Tensor> tensor, float v) {
+  TNSR operator-(TNSR tensor, float v) {
     return tensor + (-v);
   }
 
-  std::shared_ptr<Tensor> operator-(float v, std::shared_ptr<Tensor> tensor) {
+  TNSR operator-(float v, TNSR tensor) {
     return tensor - v;
   }
 
-  std::shared_ptr<Tensor> operator*(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+  TNSR operator*(TNSR tensor1, TNSR tensor2) {
     return op_visit_tensors(tensor1, tensor2, [](auto t1, auto t2) { return t1 * t2; }, [](auto t1, auto t2) { return t1 * t2; });
   }
 
-  std::shared_ptr<Tensor> operator*(std::shared_ptr<Tensor> tensor, float v) {
+  TNSR operator*(TNSR tensor, float v) {
     return op_visit_tensor_value(tensor, v, [](auto t1, auto t2) { return t1 * t2; }, [](auto t1, auto t2) { return t1 * t2; });
   }
 
-  std::shared_ptr<Tensor> operator*(float v, std::shared_ptr<Tensor> tensor) {
+  TNSR operator*(float v, TNSR tensor) {
     return tensor * v;
   }
 
-  std::shared_ptr<Tensor> operator/(std::shared_ptr<Tensor> tensor1, std::shared_ptr<Tensor> tensor2) {
+  TNSR operator/(TNSR tensor1, TNSR tensor2) {
     return op_visit_tensors(tensor1, tensor2, [](auto t1, auto t2) { return t1 / t2; }, [](auto t1, auto t2) { return t1 / t2; });
   }
 
-  std::shared_ptr<Tensor> operator/(std::shared_ptr<Tensor> tensor, float v) {
+  TNSR operator/(TNSR tensor, float v) {
     return op_visit_tensor_value(tensor, v, [](auto t1, auto t2) { return t1 / t2; }, [](auto t1, auto t2) { return t1 / t2; });
   }
 
-  std::shared_ptr<Tensor> operator/(float v, std::shared_ptr<Tensor> tensor) {
+  TNSR operator/(float v, TNSR tensor) {
     return tensor / v;
+  }
+
+  TNSR Tensor::T() {
+    return T(0, 1);
+  }
+
+  TNSR Tensor::flatten() {
+    V_VEC flattened = std::visit([this](auto&& v) {
+      using VEC = std::decay_t<decltype(v)>;
+      if constexpr (std::is_same_v<VEC, V_VEC>) {
+        return v;
+
+      } else if constexpr (std::is_same_v<VEC, P_VEC>) {
+        V_VEC new_vec;
+        auto size = 1;
+        for (auto n : shape) {
+          size *= n;
+        }
+        new_vec.reserve(size);
+
+        for (size_t i = 0; i < v.size(); i++) {
+          TNSR v_flattened = v[i]->flatten();
+          std::visit([&new_vec](auto&& vf) {
+            using VEC = std::decay_t<decltype(vf)>;
+            if constexpr (std::is_same_v<VEC, V_VEC>) {
+              for (auto el : vf) {
+                new_vec.push_back(el);
+              }
+            }
+          }, v_flattened->vector);
+        }
+        return new_vec;
+
+      } else {
+        return V_VEC();
+      }
+    }, vector);
+
+    return tnsr(flattened);
+  }
+
+  TNSR Tensor::T(int dim1, int dim2) {
+    if (shape.size() != 2) {
+      throw std::invalid_argument("can't transpose a non-2D matrix (for now)");
+    }
+
+    auto flattened = flatten()->vector;
+
+    P_VEC cols;
+    std::visit([&cols, this] (auto&& v) {
+      using VEC = std::decay_t<decltype(v)>;
+      if constexpr (std::is_same_v<VEC, V_VEC>) {
+        cols.reserve(shape[1]);
+        for (auto i = 0; i < shape[1]; i++) {
+          auto col = V_VEC(shape[0], 0);
+
+          for (auto j = 0; j < shape[0]; j++) {
+            auto idx = i + shape[1]*j;
+            col[j] = v[idx];
+          }
+          cols.push_back(tnsr(col));
+        }
+      }
+    }, flattened);
+
+    return tnsr(cols);
   }
 
   std::ostream& operator<<(std::ostream &os, PTensor &ts) {
@@ -234,7 +326,7 @@ namespace tensor {
       for (auto i = 0; i < vec.size(); i++) {
         using VecT = std::decay_t<decltype(vec[i])>;
 
-        if constexpr (std::is_same_v<VecT, std::shared_ptr<Tensor>>) {
+        if constexpr (std::is_same_v<VecT, TNSR>) {
           for (int j = 0; j < depth + 1; j++) {
             if (i > 0) {
               ss << " ";
@@ -261,39 +353,39 @@ namespace tensor {
     return _str(0);
   }
 
-  std::shared_ptr<Tensor> arange(int start, int endExclusive) {
-    auto v = std::make_shared<std::vector<float>>(0);
+  TNSR arange(int start, int endExclusive) {
+    auto v = std::make_shared<V_VEC>(0);
     if (endExclusive > start) {
       for (float i=start; i < endExclusive; i++) {
         v->push_back(i + 0);
       }
     }
-    return std::make_shared<PTensor>(*v);
+    return tnsr(*v);
   }
 
-  std::shared_ptr<Tensor> _fill(std::vector<int> &shape, int depth, std::function<float()> fill) {
+  TNSR _fill(std::vector<int> &shape, int depth, std::function<float()> fill) {
     if (depth == shape.size() - 1) {
-      std::vector<float> v;
+      V_VEC v;
       v.reserve(shape[depth]);
       for (int i = 0; i < shape[depth]; i++) {
         v.push_back(fill());
       }
 
-      return std::make_shared<PTensor>(v);
+      return tnsr(v);
     }
 
     auto dim = shape[depth];
-    std::vector<std::shared_ptr<Tensor>> data;
+    P_VEC data;
     data.reserve(dim);
 
     for (auto i = 0; i < dim; i++) {
       auto v = tensor::_fill(shape, depth + 1, fill);
       data.push_back(v);
     }
-    return std::make_shared<PTensor>(data);
+    return tnsr(data);
   }
 
-  std::shared_ptr<Tensor> fill(std::vector<int> &shape, std::function<float()> fill) {
+  TNSR fill(std::vector<int> &shape, std::function<float()> fill) {
     if (shape.empty()) {
       throw std::invalid_argument("empty shape");
     }
@@ -305,16 +397,16 @@ namespace tensor {
     return tensor::_fill(shape, 0, fill);
   }
 
-  std::shared_ptr<Tensor> zeros(std::vector<int> &shape) {
+  TNSR zeros(std::vector<int> &shape) {
     return fill(shape, []() { return 0.0; });
   }
 
-  std::shared_ptr<Tensor> ones(std::vector<int> &shape) {
+  TNSR ones(std::vector<int> &shape) {
     return fill(shape, []() { return 1.0; });
   }
 
   namespace random {
-    std::shared_ptr<Tensor> uniform(float min, float max, std::vector<int> &shape) {
+    TNSR uniform(float min, float max, std::vector<int> &shape) {
       std::random_device rd;
       std::mt19937 gen(rd());
       std::uniform_real_distribution<float> norm(min, max);
@@ -322,7 +414,7 @@ namespace tensor {
       return fill(shape, [&norm, &gen]() { return norm(gen); });
     }
 
-    std::shared_ptr<Tensor> uniform(std::vector<int> &shape) {
+    TNSR uniform(std::vector<int> &shape) {
       return uniform(0.0, 1.0, shape);
     }
   }
