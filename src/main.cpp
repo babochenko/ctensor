@@ -15,6 +15,7 @@ int main() {
   std::cout << *t1 << std::endl;
   std::cout << *t2 << std::endl;
   std::cout << *res << std::endl;
+  std::cout << *(t1+t2) << std::endl;
 
   return 0;
 }
