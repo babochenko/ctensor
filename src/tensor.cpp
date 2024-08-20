@@ -225,39 +225,27 @@ namespace tensor {
     return T(0, 1);
   }
 
-  TNSR Tensor::flatten() {
-    V_VEC flattened = std::visit([this](auto&& v) {
-      using VEC = std::decay_t<decltype(v)>;
-      if constexpr (std::is_same_v<VEC, V_VEC>) {
-        return v;
+  using Vec = std::variant<V_VEC, P_VEC>;
 
-      } else if constexpr (std::is_same_v<VEC, P_VEC>) {
-        V_VEC new_vec;
-        auto size = 1;
-        for (auto n : shape) {
-          size *= n;
-        }
-        new_vec.reserve(size);
-
-        for (size_t i = 0; i < v.size(); i++) {
-          TNSR v_flattened = v[i]->flatten();
-          std::visit([&new_vec](auto&& vf) {
-            using VEC = std::decay_t<decltype(vf)>;
-            if constexpr (std::is_same_v<VEC, V_VEC>) {
-              for (auto el : vf) {
-                new_vec.push_back(el);
-              }
-            }
-          }, v_flattened->vector);
-        }
-        return new_vec;
+  V_VEC _flatten(Vec vector, Shape shape) {
+    return std::visit([shape](auto&& vec) {
+      if constexpr (is_<decltype(vec), V_VEC>()) {
+        return vec;
 
       } else {
-        return V_VEC();
+        V_VEC flattened;
+
+        for (auto child: vec) {
+          auto child_fl = _flatten(child->vector, child->shape);
+          flattened.insert(flattened.end(), child_fl.begin(), child_fl.end());
+        }
+        return flattened;
       }
     }, vector);
+  }
 
-    return tnsr(flattened);
+  TNSR Tensor::flatten() {
+    return tnsr(_flatten(this->vector, this->shape));
   }
 
   TNSR Tensor::T(int dim1, int dim2) {
@@ -265,23 +253,20 @@ namespace tensor {
       throw std::invalid_argument("can't transpose a non-2D matrix (for now)");
     }
 
-    auto flattened = flatten()->vector;
+    auto flattened = _flatten(this->vector, this->shape);
 
     P_VEC cols;
-    std::visit([&cols, this] (auto&& v) {
-      if constexpr (is_<decltype(v), V_VEC>()) {
-        cols.reserve(shape[1]);
-        for (auto i = 0; i < shape[1]; i++) {
-          auto col = V_VEC(shape[0], 0);
+    cols.reserve(shape[1]);
 
-          for (auto j = 0; j < shape[0]; j++) {
-            auto idx = i + shape[1]*j;
-            col[j] = v[idx];
-          }
-          cols.push_back(tnsr(col));
-        }
+    for (auto i = 0; i < shape[1]; i++) {
+      auto col = V_VEC(shape[0], 0);
+
+      for (auto j = 0; j < shape[0]; j++) {
+        auto idx = i + shape[1]*j;
+        col[j] = flattened[idx];
       }
-    }, flattened);
+      cols.push_back(tnsr(col));
+    }
 
     return tnsr(cols);
   }
