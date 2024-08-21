@@ -80,6 +80,18 @@ TEST(Tensor, resize2) {
     " [3,4,5]]");
 }
 
+TEST(Tensor, resize3) {
+  auto t = tensor::arange(0, 12, tensor::Shape{2,2,3});
+  expect(t, ""
+    "[[[1,1],\n"
+    "  [1,1]],\n"
+    " [[1,1],\n"
+    "  [1,1]],\n"
+    " [[1,1],\n"
+    "  [1,1]]]");
+}
+
+
 TEST(Tensor, mul) {
   auto t1 = tensor::arange(0, 4, tensor::Shape{2,2});
   auto t2 = tensor::arange(0, 4, tensor::Shape{2,2});
