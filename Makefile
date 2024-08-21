@@ -1,3 +1,6 @@
+all:
+	make clean && make build && make test
+
 build:
 	mkdir build && cd build && cmake .. && make
 
@@ -9,6 +12,4 @@ test:
 
 run:
 	./build/ctensor
-
-all: build
 

@@ -24,6 +24,7 @@ namespace tensor {
     Tensor(V_VEC &v, Shape s) : shape(s) , vector(v) {}
     Tensor(P_VEC v, Shape s) : shape(s), vector(v) {}
 
+    TNSR resize(const Shape &shape);
     TNSR flatten();
     TNSR T();
     TNSR T(int dim1, int dim2);
@@ -40,12 +41,13 @@ namespace tensor {
   };
 
   TNSR arange(int start, int endExclusive);
-  TNSR zeros(Shape &shape);
-  TNSR ones(Shape &shape);
+  TNSR arange(int start, int endExclusive, const Shape &shape);
+  TNSR zeros(const Shape &shape);
+  TNSR ones(const Shape &shape);
 
   namespace random {
     TNSR uniform(float min, float max, Shape &shape);
-    TNSR uniform(Shape &shape);
+    TNSR uniform(const Shape &shape);
   }
 
   TNSR operator+(TNSR tensor1, TNSR tensor2);

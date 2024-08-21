@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iterator>
 #include <string>
 #include <sstream>
 #include <type_traits>
@@ -35,6 +36,14 @@ namespace tensor {
     std::string _str(int depth) override;
     std::string str() override;
   };
+
+  int product(const Shape &shape) {
+    int result = 1;
+    for (auto item: shape) {
+      result *= item;
+    }
+    return result;
+  }
 
   TNSR tnsr(V_VEC data) {
     return std::make_shared<PTensor>(data);
@@ -244,6 +253,40 @@ namespace tensor {
     }, vector);
   }
 
+  void _resize(TNSR target, int &i, V_VEC &source) {
+    std::visit([&source, &i](auto&& vec) {
+      if constexpr (is_<decltype(vec), P_VEC>()) {
+        for (auto row : vec) {
+          _resize(row, i, source);
+        }
+
+      } else if constexpr (is_<decltype(vec), V_VEC>()) {
+        for (size_t j = 0; j < vec.size(); j++) {
+          vec[j] = source[i];
+          i++;
+        }
+      }
+    }, target->vector);
+  }
+
+  TNSR Tensor::resize(const Shape &shape) {
+    auto sz1 = product(shape);
+    auto sz2 = product(this->shape);
+    if (sz1 != sz2) {
+      Shape shp = shape;
+      std::stringstream s;
+      s << "shape mismatch: " << sz2 << " and " << shp;
+      throw std::invalid_argument(s.str());
+    }
+
+    auto flat = _flatten(this->vector, this->shape);
+    auto i = 0;
+    auto result = zeros(shape);
+    _resize(result, i, flat);
+
+    return result;
+  }
+
   TNSR Tensor::flatten() {
     return tnsr(_flatten(this->vector, this->shape));
   }
@@ -361,7 +404,11 @@ namespace tensor {
     return tnsr(*v);
   }
 
-  TNSR _fill(Shape &shape, int depth, std::function<float()> fill) {
+  TNSR arange(int start, int endExclusive, const Shape &shape) {
+    return arange(start, endExclusive)->resize(shape);
+  }
+
+  TNSR _fill(const Shape &shape, int depth, std::function<float()> fill) {
     if (depth == shape.size() - 1) {
       V_VEC v;
       v.reserve(shape[depth]);
@@ -383,7 +430,7 @@ namespace tensor {
     return tnsr(data);
   }
 
-  TNSR fill(Shape &shape, std::function<float()> fill) {
+  TNSR fill(const Shape &shape, std::function<float()> fill) {
     if (shape.empty()) {
       throw std::invalid_argument("empty shape");
     }
@@ -395,16 +442,16 @@ namespace tensor {
     return tensor::_fill(shape, 0, fill);
   }
 
-  TNSR zeros(Shape &shape) {
+  TNSR zeros(const Shape &shape) {
     return fill(shape, []() { return 0.0; });
   }
 
-  TNSR ones(Shape &shape) {
+  TNSR ones(const Shape &shape) {
     return fill(shape, []() { return 1.0; });
   }
 
   namespace random {
-    TNSR uniform(float min, float max, Shape &shape) {
+    TNSR uniform(float min, float max, const Shape &shape) {
       std::random_device rd;
       std::mt19937 gen(rd());
       std::uniform_real_distribution<float> norm(min, max);
@@ -412,7 +459,7 @@ namespace tensor {
       return fill(shape, [&norm, &gen]() { return norm(gen); });
     }
 
-    TNSR uniform(Shape &shape) {
+    TNSR uniform(const Shape &shape) {
       return uniform(0.0, 1.0, shape);
     }
   }
