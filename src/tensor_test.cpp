@@ -83,14 +83,11 @@ TEST(Tensor, resize2) {
 TEST(Tensor, resize3) {
   auto t = tensor::arange(0, 12, tensor::Shape{2,2,3});
   expect(t, ""
-    "[[[1,1],\n"
-    "  [1,1]],\n"
-    " [[1,1],\n"
-    "  [1,1]],\n"
-    " [[1,1],\n"
-    "  [1,1]]]");
+    "[[[0,1,2],\n"
+    "  [3,4,5]],\n"
+    " [[6,7,8],\n"
+    "  [9,10,11]]]");
 }
-
 
 TEST(Tensor, mul) {
   auto t1 = tensor::arange(0, 4, tensor::Shape{2,2});
