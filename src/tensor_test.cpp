@@ -65,6 +65,14 @@ TEST(Tensor, sum2) {
     " [2,2]]");
 }
 
+TEST(Tensor, mul) {
+  auto t1 = tensor::ones(tensor::Shape{2,2});
+  auto mul = 0.5 * t1;
+  expect(mul, ""
+    "[[0.5,0.5],\n"
+    " [0.5,0.5]]");
+}
+
 TEST(Tensor, resize1) {
   auto t = tensor::arange(0, 4);
   auto r = t->resize(tensor::Shape{2,2});
