@@ -30,6 +30,9 @@ namespace tensor {
     TNSR T(int dim1, int dim2);
     TNSR mul(TNSR other);
 
+    TNSR exp();
+    double sum();
+
     virtual std::string _str(int depth);
     virtual std::string str();
     void print(std::ostream &os) { os << str(); }

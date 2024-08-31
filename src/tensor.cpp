@@ -1,5 +1,4 @@
 #include <iostream>
-#include <iterator>
 #include <string>
 #include <sstream>
 #include <type_traits>
@@ -105,6 +104,39 @@ namespace tensor {
     }, tensor1->vector);
   }
 
+  TNSR op_visit_tensor(TNSR &tensor, std::function<float(float)> v) {
+    auto dim = tensor->shape[0];
+
+    return std::visit([&v, dim](auto&& t) {
+      if constexpr (is_<decltype(t[0]), TNSR>()) {
+        P_VEC data;
+        data.reserve(dim);
+
+        for (size_t i = 0; i < t.size(); i++) {
+          auto x = t[i];
+          auto sum = -t[i];
+          data.push_back(sum);
+        }
+
+        return tnsr(data);
+
+      } else if constexpr (is_<decltype(t[0]), float>()) {
+        V_VEC data;
+        data.reserve(dim);
+
+        for (size_t i = 0; i < t.size(); i++) {
+          auto new_val = v(t[i]);
+          data.push_back(new_val);
+        }
+
+        return tnsr(data);
+      } else {
+        V_VEC data;
+        return tnsr(data);
+      }
+    }, tensor->vector);
+  }
+
   TNSR op_visit_tensors(
     TNSR &tensor1,
     TNSR &tensor2,
@@ -162,36 +194,7 @@ namespace tensor {
   }
 
   TNSR operator-(TNSR tensor) {
-    auto dim = tensor->shape[0];
-
-    return std::visit([dim](auto&& t) {
-      if constexpr (is_<decltype(t[0]), TNSR>()) {
-        P_VEC data;
-        data.reserve(dim);
-
-        for (size_t i = 0; i < t.size(); i++) {
-          auto x = t[i];
-          auto sum = -t[i];
-          data.push_back(sum);
-        }
-
-        return tnsr(data);
-
-      } else if constexpr (is_<decltype(t[0]), float>()) {
-        V_VEC data;
-        data.reserve(dim);
-
-        for (size_t i = 0; i < t.size(); i++) {
-          auto sum = -t[i];
-          data.push_back(sum);
-        }
-
-        return tnsr(data);
-      } else {
-        V_VEC data;
-        return tnsr(data);
-      }
-    }, tensor->vector);
+    return op_visit_tensor(tensor, std::negate<>());
   }
 
   TNSR operator-(TNSR tensor1, TNSR tensor2) {
@@ -355,6 +358,10 @@ namespace tensor {
     }
 
     return tnsr(cols);
+  }
+
+  TNSR Tensor::exp() {
+
   }
 
   std::ostream& operator<<(std::ostream &os, PTensor &ts) {

@@ -49,6 +49,12 @@ TEST(Tensor, ones) {
     "  [1,1,1]]]");
 }
 
+TEST(Tensor, negate) {
+  auto t1 = tensor::arange(0, 5);
+  auto res = -t1;
+  expect(res, "[-0,-1,-2,-3,-4]");
+}
+
 TEST(Tensor, sum1) {
   auto t1 = tensor::arange(0, 5);
   auto t2 = tensor::arange(0, 5);
@@ -65,12 +71,21 @@ TEST(Tensor, sum2) {
     " [2,2]]");
 }
 
-TEST(Tensor, mul) {
+TEST(Tensor, mul1) {
   auto t1 = tensor::ones(tensor::Shape{2,2});
   auto mul = 0.5 * t1;
   expect(mul, ""
     "[[0.5,0.5],\n"
     " [0.5,0.5]]");
+}
+
+TEST(Tensor, mul2) {
+  auto t1 = tensor::arange(0, 4, tensor::Shape{2,2});
+  auto t2 = tensor::arange(0, 4, tensor::Shape{2,2});
+  auto mul = t1->mul(t2);
+  expect(mul, ""
+    "[[2,3],\n"
+    " [6,11]]");
 }
 
 TEST(Tensor, resize1) {
@@ -95,14 +110,5 @@ TEST(Tensor, resize3) {
     "  [3,4,5]],\n"
     " [[6,7,8],\n"
     "  [9,10,11]]]");
-}
-
-TEST(Tensor, mul) {
-  auto t1 = tensor::arange(0, 4, tensor::Shape{2,2});
-  auto t2 = tensor::arange(0, 4, tensor::Shape{2,2});
-  auto mul = t1->mul(t2);
-  expect(mul, ""
-    "[[2,3],\n"
-    " [6,11]]");
 }
 
