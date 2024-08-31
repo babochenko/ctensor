@@ -22,7 +22,7 @@ namespace tensor {
     Vec vector;
     Shape shape;
 
-    Tensor(V_VEC &v, Shape s) : shape(s) , vector(v) {}
+    Tensor(V_VEC &v, Shape s) : shape(s), vector(v) {}
     Tensor(P_VEC v, Shape s) : shape(s), vector(v) {}
 
     TNSR resize(const Shape &shape);
@@ -44,6 +44,9 @@ namespace tensor {
       return os;
     }
   };
+
+  TNSR tnsr(V_VEC data);
+  TNSR tnsr(P_VEC data);
 
   TNSR arange(int start, int endExclusive);
   TNSR arange(int start, int endExclusive, const Shape &shape);

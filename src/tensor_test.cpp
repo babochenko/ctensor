@@ -1,8 +1,11 @@
 #include <gtest/gtest.h>
 #include <string>
 
-#include "tensor.cpp"
 #include "tensor.h"
+#include "tensor.cpp"
+
+#include "criterion.h"
+#include "criterion.cpp"
 
 void test_arange(int from, int toExclusive, std::string expected) {
   std::stringstream ss;
@@ -95,6 +98,19 @@ TEST(Tensor, log2) {
     " [0.693147,1.09861]]");
 }
 
+TEST(Tensor, log3) {
+  auto _x = std::vector<float>{1.0, 0.00001, 0.00001};
+  auto _y = std::vector<float>{1.0, 0.0, 0.0};
+  auto X = tensor::tnsr(_x);
+  auto Y = tensor::tnsr(_y);
+
+  auto log = X->log();
+  expect(log, "[0,-11.5129,-11.5129]");
+
+  auto mul = log * Y;
+  expect(mul, "[0,-0,-0]");
+}
+
 TEST(Tensor, add1) {
   auto t1 = tensor::arange(0, 5);
   auto t2 = tensor::arange(0, 5);
@@ -120,6 +136,15 @@ TEST(Tensor, mul1) {
 }
 
 TEST(Tensor, mul2) {
+  auto t1 = tensor::arange(0, 4, tensor::Shape{2,2});
+  auto t2 = tensor::arange(0, 4, tensor::Shape{2,2});
+  auto mul = t1 * t2;
+  expect(mul, ""
+    "[[0,1],\n"
+    " [4,9]]");
+}
+
+TEST(Tensor, mul3) {
   auto t1 = tensor::arange(0, 4, tensor::Shape{2,2});
   auto t2 = tensor::arange(0, 4, tensor::Shape{2,2});
   auto mul = t1->mul(t2);
@@ -168,5 +193,72 @@ TEST(Tensor, sum3) {
   auto t = tensor::arange(0, 8, tensor::Shape{2,2,2});
   auto sum = t->sum();
   expect(sum, 28.0);
+}
+
+TEST(Criterion, softmax0) {
+  auto t = tensor::arange(0, 1);
+  auto softmax = tensor::criterion::softmax(t);
+  expect(softmax, "[1]");
+}
+
+TEST(Criterion, softmax1) {
+  auto t = tensor::arange(0, 4);
+  auto softmax = tensor::criterion::softmax(t);
+  expect(softmax, "[0.0320586,0.0871443,0.236883,0.643914]");
+}
+
+TEST(Criterion, softmax2) {
+  auto t = tensor::arange(0, 4, tensor::Shape{2,2});
+  auto softmax = tensor::criterion::softmax(t);
+  expect(softmax, ""
+    "[[0.0320586,0.0871443],\n"
+    " [0.236883,0.643914]]");
+}
+
+TEST(Criterion, softmax3) {
+  auto _x = std::vector<float>{1.0, 0.00001, 0.00001};
+  auto X = tensor::tnsr(_x);
+  auto softmax = tensor::criterion::softmax(X);
+  expect(softmax, "[0.576114,0.211943,0.211943]");
+}
+
+TEST(Criterion, nll1) {
+  auto _x = std::vector<float>{1.0, 0.00001, 0.00001};
+  auto _y = std::vector<float>{1.0, 0.0, 0.0};
+
+  auto X = tensor::tnsr(_x);
+  auto Y = tensor::tnsr(_y);
+  auto loss = tensor::criterion::nll(X, Y);
+  expect(loss, 0.0);
+}
+
+TEST(Criterion, nll2) {
+  auto _x = std::vector<float>{0.576114, 0.211943, 0.211943};
+  auto _y = std::vector<float>{1.0, 0.0, 0.0};
+
+  auto X = tensor::tnsr(_x);
+  auto Y = tensor::tnsr(_y);
+  auto loss = tensor::criterion::nll(X, Y);
+  expect(loss, 0.551449716);
+}
+
+TEST(Criterion, crossent1) {
+  auto _x = std::vector<float>{10.0, -10.0, -10.0};
+  auto _y = std::vector<float>{1.0, 0.0, 0.0};
+
+  auto X = tensor::tnsr(_x);
+  auto Y = tensor::tnsr(_y);
+  auto loss = tensor::criterion::CrossEntropyLoss(X, Y);
+  expect(loss.calculate(), 0.0);
+}
+
+TEST(Criterion, crossent2) {
+  auto _x = std::vector<float>{1.0, 0.0, 0.0};
+  auto _y = std::vector<float>{1.0, 0.0, 0.0};
+
+  auto X = tensor::tnsr(_x);
+  auto Y = tensor::tnsr(_y);
+  auto loss = tensor::criterion::CrossEntropyLoss(X, Y);
+  expect(loss.calculate(), 0.551444769);
 }
 

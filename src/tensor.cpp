@@ -239,7 +239,7 @@ namespace tensor {
   }
 
   TNSR operator*(TNSR tensor1, TNSR tensor2) {
-    return op_visit_tensors(tensor1, tensor2, std::plus<>(), std::plus<>());
+    return op_visit_tensors(tensor1, tensor2, std::multiplies<>(), std::multiplies<>());
   }
 
   TNSR operator*(TNSR tensor, float v) {

@@ -4,6 +4,10 @@
 
 namespace tensor {
   namespace criterion {
+
+    TNSR softmax(TNSR X);
+    float nll(TNSR softmax, TNSR Y);
+
     class CrossEntropyLoss {
       public:
       TNSR X;
@@ -17,14 +21,6 @@ namespace tensor {
       float calculate();
       void backward();
     };
-
-    float CrossEntropyLoss::calculate() {
-      auto exp = X->exp();
-      auto sum = exp->sum();
-      auto softmax = exp / sum;
-
-      
-    }
   }
 }
 
