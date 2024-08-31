@@ -14,7 +14,7 @@ namespace tensor {
   using P_VEC = std::vector<TNSR>;
   using V_VEC = std::vector<float>;
 
-  class Tensor {
+  class Tensor : public std::enable_shared_from_this<Tensor> {
     using Vec = std::variant<V_VEC, P_VEC>;
 
     public:

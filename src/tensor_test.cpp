@@ -55,6 +55,18 @@ TEST(Tensor, negate) {
   expect(res, "[-0,-1,-2,-3,-4]");
 }
 
+TEST(Tensor, exp1) {
+  auto t1 = tensor::arange(0, 3);
+  auto res = t1->exp();
+  expect(res, "[1,2.71828,7.38906]");
+}
+
+TEST(Tensor, exp2) {
+  auto t1 = tensor::arange(0, 3);
+  auto res = t1->exp();
+  expect(res, "[1,2.71828,7.38906]");
+}
+
 TEST(Tensor, sum1) {
   auto t1 = tensor::arange(0, 5);
   auto t2 = tensor::arange(0, 5);

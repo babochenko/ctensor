@@ -104,7 +104,7 @@ namespace tensor {
     }, tensor1->vector);
   }
 
-  TNSR op_visit_tensor(TNSR &tensor, std::function<float(float)> v) {
+  TNSR op_visit_tensor(TNSR tensor, std::function<float(float)> v) {
     auto dim = tensor->shape[0];
 
     return std::visit([&v, dim](auto&& t) {
@@ -195,6 +195,11 @@ namespace tensor {
 
   TNSR operator-(TNSR tensor) {
     return op_visit_tensor(tensor, std::negate<>());
+  }
+
+  TNSR Tensor::exp() {
+    TNSR t = shared_from_this();
+    return op_visit_tensor(t, std::function<float(float)>(std::expf));
   }
 
   TNSR operator-(TNSR tensor1, TNSR tensor2) {
@@ -358,10 +363,6 @@ namespace tensor {
     }
 
     return tnsr(cols);
-  }
-
-  TNSR Tensor::exp() {
-
   }
 
   std::ostream& operator<<(std::ostream &os, PTensor &ts) {
