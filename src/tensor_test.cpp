@@ -81,6 +81,20 @@ TEST(Tensor, exp2) {
     " [7.38906,20.0855]]");
 }
 
+TEST(Tensor, log1) {
+  auto t1 = tensor::arange(0, 3);
+  auto res = t1->log();
+  expect(res, "[-inf,0,0.693147]");
+}
+
+TEST(Tensor, log2) {
+  auto t1 = tensor::arange(0, 4)->resize(tensor::Shape{2,2});
+  auto res = t1->log();
+  expect(res, ""
+    "[[-inf,0],\n"
+    " [0.693147,1.09861]]");
+}
+
 TEST(Tensor, add1) {
   auto t1 = tensor::arange(0, 5);
   auto t2 = tensor::arange(0, 5);

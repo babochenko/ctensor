@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <sstream>
 #include <vector>
 #include <iostream>
 #include <memory>
@@ -31,6 +32,7 @@ namespace tensor {
     TNSR mul(TNSR other);
 
     TNSR exp();
+    TNSR log();
     float sum();
 
     virtual std::string _str(int depth);
@@ -70,5 +72,7 @@ namespace tensor {
   TNSR operator/(TNSR tensor1, TNSR tensor2);
   TNSR operator/(TNSR tensor, float v);
   TNSR operator/(float v, TNSR tensor);
+
+  void compare_shapes(Shape shape1, Shape shape2);
 }
 

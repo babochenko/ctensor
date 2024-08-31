@@ -159,11 +159,7 @@ namespace tensor {
     std::function<TNSR(TNSR, TNSR)> t,
     std::function<float(float, float)> v
   ) {
-    if (tensor1->shape != tensor2->shape) {
-      std::stringstream s;
-      s << "shape mismatch: " << tensor1->shape << " and " << tensor2->shape;
-      throw std::invalid_argument(s.str());
-    }
+    compare_shapes(tensor1->shape, tensor2->shape);
 
     auto dim = tensor1->shape[0];
 
@@ -216,6 +212,11 @@ namespace tensor {
   TNSR Tensor::exp() {
     TNSR t = shared_from_this();
     return op_visit_tensor(t, std::function<float(float)>(std::expf));
+  }
+
+  TNSR Tensor::log() {
+    TNSR t = shared_from_this();
+    return op_visit_tensor(t, std::function<float(float)>(std::logf));
   }
 
   float Tensor::sum() {
@@ -347,11 +348,7 @@ namespace tensor {
 
   TNSR Tensor::mul(TNSR other) {
     auto t = other->T();
-    if (shape != t->shape) {
-      std::stringstream s;
-      s << "shape mismatch: " << shape << " and " << other->shape;
-      throw std::invalid_argument(s.str());
-    }
+    compare_shapes(shape, t->shape);
 
     auto is = shape[0];
     auto js = shape[1];
@@ -492,6 +489,14 @@ namespace tensor {
 
     TNSR uniform(const Shape &shape) {
       return uniform(0.0, 1.0, shape);
+    }
+  }
+
+  void compare_shapes(Shape shape1, Shape shape2) {
+    if (shape1 != shape2) {
+      std::stringstream s;
+      s << "shape mismatch: " << shape1 << " and " << shape2;
+      throw std::invalid_argument(s.str());
     }
   }
 }
