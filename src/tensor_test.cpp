@@ -49,10 +49,18 @@ TEST(Tensor, ones) {
     "  [1,1,1]]]");
 }
 
-TEST(Tensor, negate) {
+TEST(Tensor, negate1) {
   auto t1 = tensor::arange(0, 5);
   auto res = -t1;
   expect(res, "[-0,-1,-2,-3,-4]");
+}
+
+TEST(Tensor, negate2) {
+  auto t1 = tensor::arange(0, 4)->resize(tensor::Shape{2,2});
+  auto res = -t1;
+  expect(res, ""
+    "[[-0,-1],\n"
+    " [-2,-3]]");
 }
 
 TEST(Tensor, exp1) {
@@ -62,9 +70,11 @@ TEST(Tensor, exp1) {
 }
 
 TEST(Tensor, exp2) {
-  auto t1 = tensor::arange(0, 3);
+  auto t1 = tensor::arange(0, 4)->resize(tensor::Shape{2,2});
   auto res = t1->exp();
-  expect(res, "[1,2.71828,7.38906]");
+  expect(res, ""
+    "[[1,2.71828],\n"
+    " [7.38906,20.0855]]");
 }
 
 TEST(Tensor, sum1) {

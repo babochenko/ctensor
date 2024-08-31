@@ -113,9 +113,8 @@ namespace tensor {
         data.reserve(dim);
 
         for (size_t i = 0; i < t.size(); i++) {
-          auto x = t[i];
-          auto sum = -t[i];
-          data.push_back(sum);
+          auto result = op_visit_tensor(t[i], v);
+          data.push_back(result);
         }
 
         return tnsr(data);
@@ -125,8 +124,8 @@ namespace tensor {
         data.reserve(dim);
 
         for (size_t i = 0; i < t.size(); i++) {
-          auto new_val = v(t[i]);
-          data.push_back(new_val);
+          auto result = v(t[i]);
+          data.push_back(result);
         }
 
         return tnsr(data);
