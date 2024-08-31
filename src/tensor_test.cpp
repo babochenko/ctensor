@@ -31,6 +31,10 @@ void expect(tensor::TNSR tensor, std::string expected) {
   EXPECT_EQ(ss.str(), expected);
 }
 
+void expect(float actual, float expected) {
+  EXPECT_EQ(actual, expected);
+}
+
 TEST(Tensor, ones) {
   auto t = tensor::ones(tensor::Shape{3,4,3});
 
@@ -77,18 +81,18 @@ TEST(Tensor, exp2) {
     " [7.38906,20.0855]]");
 }
 
-TEST(Tensor, sum1) {
+TEST(Tensor, add1) {
   auto t1 = tensor::arange(0, 5);
   auto t2 = tensor::arange(0, 5);
-  auto sum = t1 + t2;
-  expect(sum, "[0,2,4,6,8]");
+  auto add = t1 + t2;
+  expect(add, "[0,2,4,6,8]");
 }
 
-TEST(Tensor, sum2) {
+TEST(Tensor, add2) {
   auto t1 = tensor::ones(tensor::Shape{2,2});
   auto t2 = tensor::ones(tensor::Shape{2,2});
-  auto sum = t1 + t2;
-  expect(sum, ""
+  auto add = t1 + t2;
+  expect(add, ""
     "[[2,2],\n"
     " [2,2]]");
 }
@@ -132,5 +136,23 @@ TEST(Tensor, resize3) {
     "  [3,4,5]],\n"
     " [[6,7,8],\n"
     "  [9,10,11]]]");
+}
+
+TEST(Tensor, sum1) {
+  auto t = tensor::arange(0, 1);
+  auto sum = t->sum();
+  expect(sum, 0.0);
+}
+
+TEST(Tensor, sum2) {
+  auto t = tensor::arange(0, 4);
+  auto sum = t->sum();
+  expect(sum, 6.0);
+}
+
+TEST(Tensor, sum3) {
+  auto t = tensor::arange(0, 8, tensor::Shape{2,2,2});
+  auto sum = t->sum();
+  expect(sum, 28.0);
 }
 

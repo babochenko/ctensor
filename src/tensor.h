@@ -31,7 +31,7 @@ namespace tensor {
     TNSR mul(TNSR other);
 
     TNSR exp();
-    double sum();
+    float sum();
 
     virtual std::string _str(int depth);
     virtual std::string str();

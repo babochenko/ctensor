@@ -136,6 +136,23 @@ namespace tensor {
     }, tensor->vector);
   }
 
+  void op_visit_tensor_inplace(TNSR tensor, std::function<void(float)> v) {
+    auto dim = tensor->shape[0];
+
+    std::visit([&v, dim](auto&& t) {
+      if constexpr (is_<decltype(t[0]), TNSR>()) {
+        for (size_t i = 0; i < t.size(); i++) {
+          op_visit_tensor_inplace(t[i], v);
+        }
+
+      } else if constexpr (is_<decltype(t[0]), float>()) {
+        for (size_t i = 0; i < t.size(); i++) {
+          v(t[i]);
+        }
+      }
+    }, tensor->vector);
+  }
+
   TNSR op_visit_tensors(
     TNSR &tensor1,
     TNSR &tensor2,
@@ -201,6 +218,13 @@ namespace tensor {
     return op_visit_tensor(t, std::function<float(float)>(std::expf));
   }
 
+  float Tensor::sum() {
+    TNSR t = shared_from_this();
+    float sum = 0.0;
+    op_visit_tensor_inplace(t, [&sum](float val) { sum += val; });
+    return sum;
+  }
+
   TNSR operator-(TNSR tensor1, TNSR tensor2) {
     return tensor1 + (-tensor2);
   }
@@ -244,7 +268,7 @@ namespace tensor {
   using Vec = std::variant<V_VEC, P_VEC>;
 
   V_VEC _flatten(Vec vector, Shape shape) {
-    return std::visit([shape](auto&& vec) {
+    return std::visit([](auto&& vec) {
       if constexpr (is_<decltype(vec), V_VEC>()) {
         return vec;
 

@@ -8,13 +8,16 @@ namespace tensor {
       public:
       TNSR X;
       TNSR Y;
-      double loss = -1.0;
+      float loss = -1.0;
 
-      double calculate();
+      float calculate();
       void backward();
     };
 
-    double CrossEntropyLoss::calculate() {
+    float CrossEntropyLoss::calculate() {
+      auto exp = X->exp();
+      auto sum = exp->sum();
+      exp / sum;
 
     }
   }
