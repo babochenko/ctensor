@@ -29,8 +29,8 @@ namespace tensor {
 
   class PTensor : public Tensor {
     public:
-    PTensor(V_VEC &v) : Tensor(v, Shape(1, v.size())) {}
-    PTensor(P_VEC v) : Tensor(v, _shape(v)) {}
+    PTensor(V_VEC &v, BW _backward) : Tensor(v, Shape(1, v.size()), _backward) {}
+    PTensor(P_VEC v, BW _backward) : Tensor(v, _shape(v), _backward) {}
 
     std::string _str(int depth) override;
     std::string str() override;
@@ -45,11 +45,23 @@ namespace tensor {
   }
 
   TNSR tnsr(V_VEC data) {
-    return std::make_shared<PTensor>(data);
+    return std::make_shared<PTensor>(data, [&data](){
+      return tensor::zeros(Shape(1, data.size()));
+    });
   }
 
   TNSR tnsr(P_VEC data) {
-    return std::make_shared<PTensor>(data);
+    return std::make_shared<PTensor>(data, [&data](){
+      return tensor::zeros(_shape(data));
+    });
+  }
+
+  TNSR tnsr(V_VEC data, BW bw) {
+    return std::make_shared<PTensor>(data, bw);
+  }
+
+  TNSR tnsr(P_VEC data, BW bw) {
+    return std::make_shared<PTensor>(data, bw);
   }
 
   std::string Tensor::_str(int depth) {
@@ -58,6 +70,22 @@ namespace tensor {
 
   std::string Tensor::str() {
     return "Tensor()";
+  }
+
+  float Tensor::item() {
+    TNSR t = shared_from_this();
+    return std::visit([](auto&& v) {
+      if constexpr (is_<decltype(v), V_VEC>()) {
+        if (v.size() == 1) {
+          return v[0];
+        }
+      }
+
+      std::stringstream s;
+      s << "Can't get item from Tensor";
+      throw std::invalid_argument(s.str());
+      return 0.0f;
+    }, t->vector);
   }
 
   template <typename T>
@@ -71,6 +99,17 @@ namespace tensor {
     }
     os << ")";
     return os;
+  }
+
+  void Tensor::backward() {
+    if (this->_backward) {
+      this->grad = this->_backward();
+      if (!this->grad) {
+        throw std::runtime_error("Gradient not properly initialized.");
+      }
+    } else {
+      throw std::runtime_error("Backward function not initialized.");
+    }
   }
 
   template <typename L, typename R, typename FN = std::conditional<std::is_same<L, P_VEC>::value, TNSR, float>>
@@ -219,11 +258,13 @@ namespace tensor {
     return op_visit_tensor(t, std::function<float(float)>(std::logf));
   }
 
-  float Tensor::sum() {
+  TNSR Tensor::sum() {
     TNSR t = shared_from_this();
     float sum = 0.0;
     op_visit_tensor_inplace(t, [&sum](float val) { sum += val; });
-    return sum;
+
+    BW bw = []() { return tensor::ones(tensor::Shape{1}); };
+    return tnsr(V_VEC{sum}, bw);
   }
 
   TNSR operator-(TNSR tensor1, TNSR tensor2) {
@@ -464,7 +505,10 @@ namespace tensor {
     }
     for (auto &val: shape) {
       if (val <= 0) {
-        throw std::invalid_argument("non-positive shape");
+        Shape shp = shape;
+        std::stringstream s;
+        s << "cannot create tensor of shape " << shp;
+        throw std::invalid_argument(s.str());
       }
     }
     return tensor::_fill(shape, 0, fill);

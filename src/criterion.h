@@ -17,7 +17,7 @@ namespace tensor {
       CrossEntropyLoss(TNSR X, TNSR Y) : X(X), Y(Y) {
         compare_shapes(X->shape, Y->shape);
       }
-      
+
       float calculate();
       void backward();
     };

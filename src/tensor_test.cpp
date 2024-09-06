@@ -179,19 +179,19 @@ TEST(Tensor, resize3) {
 
 TEST(Tensor, sum1) {
   auto t = tensor::arange(0, 1);
-  auto sum = t->sum();
+  auto sum = t->sum()->item();
   expect(sum, 0.0);
 }
 
 TEST(Tensor, sum2) {
   auto t = tensor::arange(0, 4);
-  auto sum = t->sum();
+  auto sum = t->sum()->item();
   expect(sum, 6.0);
 }
 
 TEST(Tensor, sum3) {
   auto t = tensor::arange(0, 8, tensor::Shape{2,2,2});
-  auto sum = t->sum();
+  auto sum = t->sum()->item();
   expect(sum, 28.0);
 }
 
@@ -260,5 +260,29 @@ TEST(Criterion, crossent2) {
   auto Y = tensor::tnsr(_y);
   auto loss = tensor::criterion::CrossEntropyLoss(X, Y);
   expect(loss.calculate(), 0.551444769);
+}
+
+tensor::TNSR backprop_tensor() {
+  return tensor::tnsr(std::vector<float>{
+    0.8413, 0.8408, 0.1184,
+    0.8690, 0.0695, 0.4731,
+    0.0101, 0.9498, 0.3768,
+  })->resize(tensor::Shape{3,3});
+}
+
+TEST(Backprop, base_tensor) {
+  expect(backprop_tensor(), ""
+    "[[0.8413,0.8408,0.1184],\n"
+    " [0.869,0.0695,0.4731],\n"
+    " [0.0101,0.9498,0.3768]]");
+}
+
+TEST(Backprop, sum) {
+  tensor::TNSR t = backprop_tensor();
+  t->sum()->backward();
+  expect(t->grad, ""
+    "[[1,1,1],\n"
+    " [1,1,1],\n"
+    " [1,1,1]");
 }
 
