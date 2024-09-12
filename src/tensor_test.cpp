@@ -278,11 +278,15 @@ TEST(Backprop, base_tensor) {
 }
 
 TEST(Backprop, sum) {
-  tensor::TNSR t = backprop_tensor();
-  t->sum()->backward();
+  auto t = backprop_tensor();
+  auto sum = t->sum();
+
+  sum->backward();
+
+  expect(sum->grad, "[1]");
   expect(t->grad, ""
     "[[1,1,1],\n"
     " [1,1,1],\n"
-    " [1,1,1]");
+    " [1,1,1]]");
 }
 

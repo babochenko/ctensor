@@ -14,12 +14,18 @@ namespace tensor {
   using TNSR = std::shared_ptr<Tensor>;
   using P_VEC = std::vector<TNSR>;
   using V_VEC = std::vector<float>;
-  using BW = std::function<TNSR()>;
+
+  class Backward {
+    public:
+    virtual TNSR backward();
+  };
+
+  using BW = std::shared_ptr<Backward>;
 
   class Tensor : public std::enable_shared_from_this<Tensor> {
     using Vec = std::variant<V_VEC, P_VEC>;
 
-    private:
+    protected:
     BW _backward;
 
     public:
@@ -41,7 +47,8 @@ namespace tensor {
     TNSR sum();
     float item();
 
-    void backward();
+    virtual void _do_backward(TNSR prev);
+    virtual void backward();
 
     virtual std::string _str(int depth);
     virtual std::string str();
@@ -52,6 +59,16 @@ namespace tensor {
       return os;
     }
   };
+
+  Shape _shape(P_VEC &v) {
+    int prev_size = v.size();
+    Shape prev = v[0]->shape;
+
+    Shape shape = { prev_size };
+    shape.insert(shape.end(), prev.begin(), prev.end());
+
+    return shape;
+  }
 
   TNSR tnsr(V_VEC data);
   TNSR tnsr(P_VEC data);

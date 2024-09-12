@@ -8,6 +8,7 @@
 #include <random>
 
 #include "tensor.h"
+#include "backward.h"
 
 namespace tensor {
 
@@ -17,20 +18,20 @@ namespace tensor {
     return std::is_same_v<V, T2>;
   } 
 
-  Shape _shape(P_VEC &v) {
-    int prev_size = v.size();
-    Shape prev = v[0]->shape;
-
-    Shape shape = { prev_size };
-    shape.insert(shape.end(), prev.begin(), prev.end());
-
-    return shape;
-  }
+  using PARENTS = std::vector<TNSR>;
 
   class PTensor : public Tensor {
+    private:
+    PARENTS parents;
+
+    protected:
+    void _do_backward(TNSR prev) override;
+
     public:
-    PTensor(V_VEC &v, BW _backward) : Tensor(v, Shape(1, v.size()), _backward) {}
-    PTensor(P_VEC v, BW _backward) : Tensor(v, _shape(v), _backward) {}
+    PTensor(V_VEC &v, BW _backward, PARENTS parents) : Tensor(v, Shape(1, v.size()), _backward), parents(parents) {}
+    PTensor(P_VEC v, BW _backward, PARENTS parents) : Tensor(v, _shape(v), _backward), parents(parents) {}
+
+    void backward() override;
 
     std::string _str(int depth) override;
     std::string str() override;
@@ -45,23 +46,39 @@ namespace tensor {
   }
 
   TNSR tnsr(V_VEC data) {
-    return std::make_shared<PTensor>(data, [&data](){
-      return tensor::zeros(Shape(1, data.size()));
-    });
+    auto bw = std::make_shared<tensor::backward::NoOpV>(data);
+    PARENTS prnts{0};
+    return std::make_shared<PTensor>(data, bw, prnts);
   }
 
   TNSR tnsr(P_VEC data) {
-    return std::make_shared<PTensor>(data, [&data](){
-      return tensor::zeros(_shape(data));
-    });
+    auto bw = std::make_shared<tensor::backward::NoOp>(data);
+    PARENTS prnts;
+    return std::make_shared<PTensor>(data, bw, prnts);
   }
 
   TNSR tnsr(V_VEC data, BW bw) {
-    return std::make_shared<PTensor>(data, bw);
+    PARENTS prnts;
+    return std::make_shared<PTensor>(data, bw, prnts);
   }
 
   TNSR tnsr(P_VEC data, BW bw) {
-    return std::make_shared<PTensor>(data, bw);
+    PARENTS prnts;
+    return std::make_shared<PTensor>(data, bw, prnts);
+  }
+
+  TNSR tnsr(V_VEC data, BW bw, PARENTS prnts) {
+    return std::make_shared<PTensor>(data, bw, prnts);
+  }
+
+  TNSR tnsr(P_VEC data, BW bw, PARENTS prnts) {
+    return std::make_shared<PTensor>(data, bw, prnts);
+  }
+
+  void Tensor::_do_backward(TNSR prev) {
+  }
+
+  void Tensor::backward() {
   }
 
   std::string Tensor::_str(int depth) {
@@ -101,15 +118,23 @@ namespace tensor {
     return os;
   }
 
-  void Tensor::backward() {
+  void PTensor::_do_backward(TNSR prev) {
     if (this->_backward) {
-      this->grad = this->_backward();
+      this->grad = this->_backward->backward() * prev;
       if (!this->grad) {
         throw std::runtime_error("Gradient not properly initialized.");
+      }
+
+      for (auto prnt: this->parents) {
+        prnt->_do_backward(this->grad);
       }
     } else {
       throw std::runtime_error("Backward function not initialized.");
     }
+  }
+
+  void PTensor::backward() {
+    _do_backward(arange(1, 2));
   }
 
   template <typename L, typename R, typename FN = std::conditional<std::is_same<L, P_VEC>::value, TNSR, float>>
@@ -248,6 +273,9 @@ namespace tensor {
     return op_visit_tensor(tensor, std::negate<>());
   }
 
+  TNSR Backward::backward() {
+  }
+
   TNSR Tensor::exp() {
     TNSR t = shared_from_this();
     return op_visit_tensor(t, std::function<float(float)>(std::expf));
@@ -263,8 +291,10 @@ namespace tensor {
     float sum = 0.0;
     op_visit_tensor_inplace(t, [&sum](float val) { sum += val; });
 
-    BW bw = []() { return tensor::ones(tensor::Shape{1}); };
-    return tnsr(V_VEC{sum}, bw);
+    BW bw = std::make_unique<tensor::backward::Sum>();
+    PARENTS prnts{t};
+
+    return tnsr(V_VEC{sum}, bw, prnts);
   }
 
   TNSR operator-(TNSR tensor1, TNSR tensor2) {
@@ -280,6 +310,19 @@ namespace tensor {
   }
 
   TNSR operator*(TNSR tensor1, TNSR tensor2) {
+    if (tensor2->shape == Shape{1}) {
+      return std::visit([&tensor1](auto&& vec) {
+        float data;
+        if constexpr (is_<decltype(vec), V_VEC>()) {
+          data = vec[0];
+        } else {
+          data = vec[0]->item();
+        }
+
+        return op_visit_tensor_value(tensor1, data, std::multiplies<>(), std::multiplies<>());
+      }, tensor2->vector);
+    }
+
     return op_visit_tensors(tensor1, tensor2, std::multiplies<>(), std::multiplies<>());
   }
 
