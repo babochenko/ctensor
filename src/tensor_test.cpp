@@ -267,7 +267,7 @@ TEST(Criterion, crossent1) {
   auto X = tensor::tnsr(_x);
   auto Y = tensor::tnsr(_y);
   auto loss = tensor::criterion::CrossEntropyLoss(X, Y);
-  expect(loss.calculate(), 0.0);
+  expect(loss.calculate()->item(), 0.0);
 }
 
 TEST(Criterion, crossent2) {
@@ -277,7 +277,7 @@ TEST(Criterion, crossent2) {
   auto X = tensor::tnsr(_x);
   auto Y = tensor::tnsr(_y);
   auto loss = tensor::criterion::CrossEntropyLoss(X, Y);
-  expect(loss.calculate(), 0.551444769);
+  expect(loss.calculate()->item(), 0.551444769);
 }
 
 tensor::TNSR _X() {
@@ -300,7 +300,7 @@ TEST(Backprop, matmul) {
 
   auto y = tensor::tnsr(tensor::V_VEC{1.0, 0.0, 0.0});
   auto loss = tensor::criterion::CrossEntropyLoss(logs, y);
-  expect(loss.calculate(), 0.985463798);
+  expect(loss.calculate()->item(), 0.985463798);
 }
 
 TEST(Backprop, base_tensor) {

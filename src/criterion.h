@@ -6,7 +6,7 @@ namespace tensor {
   namespace criterion {
 
     TNSR softmax(TNSR X);
-    float nll(TNSR softmax, TNSR Y);
+    TNSR nll(TNSR softmax, TNSR Y);
 
     class CrossEntropyLoss {
       public:
@@ -18,7 +18,7 @@ namespace tensor {
         compare_shapes(X->shape, Y->shape);
       }
 
-      float calculate();
+      TNSR calculate();
       void backward();
     };
   }

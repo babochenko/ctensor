@@ -12,11 +12,11 @@ namespace tensor {
       return softmax;
     }
 
-    float nll(TNSR softmax, TNSR Y) {
-      return -((softmax->log() * Y)->sum())->item();
+    TNSR nll(TNSR softmax, TNSR Y) {
+      return -((softmax->log() * Y)->sum());
     }
 
-    float CrossEntropyLoss::calculate() {
+    TNSR CrossEntropyLoss::calculate() {
       return nll(softmax(X), Y);
     }
   }
