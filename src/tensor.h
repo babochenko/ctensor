@@ -41,6 +41,7 @@ namespace tensor {
     TNSR T();
     TNSR T(int dim1, int dim2);
     TNSR mul(TNSR other);
+    float dot(TNSR other);
 
     TNSR exp();
     TNSR log();
@@ -102,5 +103,6 @@ namespace tensor {
   TNSR operator/(float v, TNSR tensor);
 
   void compare_shapes(Shape shape1, Shape shape2);
+  void compare_shapes(Shape shape1, Shape shape2, size_t idx);
 }
 

@@ -195,6 +195,24 @@ TEST(Tensor, sum3) {
   expect(sum, 28.0);
 }
 
+TEST(Tensor, dot0) {
+  auto t1 = tensor::tnsr(std::vector<float>{1.0});
+  auto t2 = tensor::tnsr(std::vector<float>{1.0});
+  expect(t1->dot(t2), 1.0f);
+}
+
+TEST(Tensor, dot1) {
+  auto t1 = tensor::tnsr(std::vector<float>{1.0, 1.0, 1.0});
+  auto t2 = tensor::tnsr(std::vector<float>{1.0, 1.0, 1.0});
+  expect(t1->dot(t2), 3.0f);
+}
+
+TEST(Tensor, dot2) {
+  auto t1 = tensor::tnsr(std::vector<float>{1.0, 2.0, 1.0});
+  auto t2 = tensor::tnsr(std::vector<float>{2.0, 3.0, 1.0});
+  expect(t1->dot(t2), 9.0f);
+}
+
 TEST(Criterion, softmax0) {
   auto t = tensor::arange(0, 1);
   auto softmax = tensor::criterion::softmax(t);
@@ -262,7 +280,7 @@ TEST(Criterion, crossent2) {
   expect(loss.calculate(), 0.551444769);
 }
 
-tensor::TNSR backprop_tensor() {
+tensor::TNSR _X() {
   return tensor::tnsr(std::vector<float>{
     0.8413, 0.8408, 0.1184,
     0.8690, 0.0695, 0.4731,
@@ -270,15 +288,30 @@ tensor::TNSR backprop_tensor() {
   })->resize(tensor::Shape{3,3});
 }
 
+tensor::TNSR _W() {
+  return tensor::tnsr(std::vector<float>{
+    0.2939, 0.3367, 0.1780,
+  })->resize(tensor::Shape{3,1});
+}
+
+TEST(Backprop, matmul) {
+  auto logs = _X()->mul(_W())->resize(tensor::Shape{3});
+  expect(logs, "[0.551431,0.363012,0.389836]");
+
+  auto y = tensor::tnsr(tensor::V_VEC{1.0, 0.0, 0.0});
+  auto loss = tensor::criterion::CrossEntropyLoss(logs, y);
+  expect(loss.calculate(), 0.985463798);
+}
+
 TEST(Backprop, base_tensor) {
-  expect(backprop_tensor(), ""
+  expect(_X(), ""
     "[[0.8413,0.8408,0.1184],\n"
     " [0.869,0.0695,0.4731],\n"
     " [0.0101,0.9498,0.3768]]");
 }
 
 TEST(Backprop, sum) {
-  auto t = backprop_tensor();
+  auto t = _X();
   auto sum = t->sum();
 
   sum->backward();

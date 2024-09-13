@@ -430,43 +430,58 @@ namespace tensor {
     return tnsr(cols);
   }
 
+  float Tensor::dot(TNSR other) {
+    TNSR t = shared_from_this();
+    auto t_shape = t->shape;
+    compare_shapes(t_shape, other->shape);
+
+    auto valid = t_shape.size() == 1;
+    if (!valid) {
+      std::stringstream s;
+      s << "invalid shapes: " << t_shape << " and " << other->shape;
+      throw std::invalid_argument(s.str());
+      return 0.0f;
+    }
+
+    auto len = t_shape[t_shape.size() == 1 ? 0 : 1];
+
+    return std::visit([&len](auto&& r1, auto&& r2) {
+      if constexpr (is_<decltype(r1), V_VEC>() && is_<decltype(r2), V_VEC>()) {
+        float sum = 0.0;
+        for (auto j = 0; j < len; j++) {
+          sum += r1[j] * r2[j];
+        }
+        return sum;
+      } else {
+        std::stringstream s;
+        s << "invalid type: " << typeid(r1).name();
+        throw std::invalid_argument(s.str());
+        return 0.0f;
+      }
+    }, t->vector, other->vector);
+  }
+
   TNSR Tensor::mul(TNSR other) {
     auto t = other->T();
-    compare_shapes(shape, t->shape);
+    compare_shapes(shape, t->shape, 1);
 
-    auto is = shape[0];
-    auto js = shape[1];
-    auto cols = P_VEC();
-    cols.reserve(is);
+    auto cols = shape[0];
+    auto rows = t->shape[0];
+
+    auto result = V_VEC();
+    result.reserve(cols * rows);
 
     for (auto i = 0; i < shape[0]; i++) {
-      auto col = V_VEC(is, float{});
-
-      for (auto k = 0; k < shape[0]; k++) {
-        std::visit([&col, i, k, is, js](auto&& c1, auto&& c2) {
+      for (auto j = 0; j < t->shape[0]; j++) {
+        std::visit([&result, i, j](auto&& c1, auto&& c2) {
           if constexpr (is_<decltype(c1), P_VEC>() && is_<decltype(c2), P_VEC>()) {
-
-            std::visit([&col, i, k, js](auto&& r1, auto&& r2) {
-              if constexpr (is_<decltype(r1), V_VEC>() && is_<decltype(r2), V_VEC>()) {
-                auto sum = 0.0;
-                for (auto j = 0; j < js; j++) {
-                  sum += r1[j] * r2[j];
-                }
-                col[k] = sum;
-              } else {
-                std::stringstream s;
-                s << "invalid type: " << typeid(r1).name();
-                throw std::invalid_argument(s.str());
-              }
-            }, c1[i]->vector, c2[k]->vector);
-
+            result.push_back(c1[i]->dot(c2[j]));
           }
         }, this->vector, t->vector);
       }
-      cols.push_back(tnsr(col));
     }
 
-    return tnsr(cols);
+    return tnsr(result)->resize(Shape{cols, rows});
   }
 
   std::ostream& operator<<(std::ostream &os, PTensor &ts) {
@@ -581,6 +596,14 @@ namespace tensor {
 
   void compare_shapes(Shape shape1, Shape shape2) {
     if (shape1 != shape2) {
+      std::stringstream s;
+      s << "shape mismatch: " << shape1 << " and " << shape2;
+      throw std::invalid_argument(s.str());
+    }
+  }
+
+  void compare_shapes(Shape shape1, Shape shape2, size_t idx) {
+    if (shape1[idx] != shape2[idx]) {
       std::stringstream s;
       s << "shape mismatch: " << shape1 << " and " << shape2;
       throw std::invalid_argument(s.str());
