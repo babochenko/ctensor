@@ -19,7 +19,6 @@ namespace tensor {
       }
 
       TNSR calculate();
-      void backward();
     };
   }
 }

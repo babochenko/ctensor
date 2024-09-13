@@ -246,7 +246,7 @@ TEST(Criterion, nll1) {
 
   auto X = tensor::tnsr(_x);
   auto Y = tensor::tnsr(_y);
-  auto loss = tensor::criterion::nll(X, Y);
+  auto loss = tensor::criterion::nll(X, Y)->item();
   expect(loss, 0.0);
 }
 
@@ -256,7 +256,7 @@ TEST(Criterion, nll2) {
 
   auto X = tensor::tnsr(_x);
   auto Y = tensor::tnsr(_y);
-  auto loss = tensor::criterion::nll(X, Y);
+  auto loss = tensor::criterion::nll(X, Y)->item();
   expect(loss, 0.551449716);
 }
 
@@ -295,12 +295,19 @@ tensor::TNSR _W() {
 }
 
 TEST(Backprop, matmul) {
-  auto logs = _X()->mul(_W())->resize(tensor::Shape{3});
+  auto X = _X();
+  auto W = _W();
+
+  auto logs = X->mul(W)->resize(tensor::Shape{3});
   expect(logs, "[0.551431,0.363012,0.389836]");
 
   auto y = tensor::tnsr(tensor::V_VEC{1.0, 0.0, 0.0});
   auto loss = tensor::criterion::CrossEntropyLoss(logs, y);
-  expect(loss.calculate()->item(), 0.985463798);
+  auto _loss = loss.calculate();
+  expect(_loss->item(), 0.985463798);
+
+  _loss->backward();
+  expect(W->grad, "[1]");
 }
 
 TEST(Backprop, base_tensor) {
