@@ -46,13 +46,13 @@ namespace tensor {
   }
 
   TNSR tnsr(V_VEC data) {
-    auto bw = std::make_shared<tensor::backward::NoOpV>(data);
+    auto bw = tensor::backward::noOpV(data);
     PARENTS prnts{0};
     return std::make_shared<PTensor>(data, bw, prnts);
   }
 
   TNSR tnsr(P_VEC data) {
-    auto bw = std::make_shared<tensor::backward::NoOp>(data);
+    auto bw = tensor::backward::noOp(data);
     PARENTS prnts;
     return std::make_shared<PTensor>(data, bw, prnts);
   }
@@ -120,7 +120,7 @@ namespace tensor {
 
   void PTensor::_do_backward(TNSR prev) {
     if (this->_backward) {
-      this->grad = this->_backward->backward() * prev;
+      this->grad = this->_backward->backward(prev);
       if (!this->grad) {
         throw std::runtime_error("Gradient not properly initialized.");
       }
@@ -221,13 +221,19 @@ namespace tensor {
     TNSR &tensor1,
     TNSR &tensor2,
     std::function<TNSR(TNSR, TNSR)> t,
-    std::function<float(float, float)> v
+    std::function<float(float, float)> v,
+    BW t1bw,
+    BW t2bw
   ) {
     compare_shapes(tensor1->shape, tensor2->shape);
 
     auto dim = tensor1->shape[0];
 
-    return std::visit([&t, &v, dim](auto&& t1, auto&& t2) {
+    tensor1->set_backward(t1bw);
+    tensor2->set_backward(t2bw);
+    PARENTS prnts{tensor1, tensor2};
+
+    return std::visit([&prnts, &t, &v, dim](auto&& t1, auto&& t2) {
       if constexpr (is_<decltype(t1[0]), TNSR>() && is_<decltype(t2[0]), TNSR>()) {
         P_VEC data;
         data.reserve(dim);
@@ -238,7 +244,7 @@ namespace tensor {
           data.push_back(res);
         }
 
-        return tnsr(data);
+        return tnsr(data, tensor::backward::noOp(data), prnts);
 
       } else if constexpr (is_<decltype(t1[0]), float>() && is_<decltype(t2[0]), float>()) {
         V_VEC data;
@@ -258,7 +264,14 @@ namespace tensor {
   }
 
   TNSR operator+(TNSR tensor1, TNSR tensor2) {
-    return op_visit_tensors(tensor1, tensor2, std::plus<>(), std::plus<>());
+    return op_visit_tensors(
+      tensor1,
+      tensor2,
+      std::plus<>(),
+      std::plus<>(),
+      tensor::backward::noOpP(tensor1),
+      tensor::backward::noOpP(tensor2)
+    );
   }
 
   TNSR operator+(TNSR tensor, float v) {
@@ -273,7 +286,8 @@ namespace tensor {
     return op_visit_tensor(tensor, std::negate<>());
   }
 
-  TNSR Backward::backward() {
+  TNSR Backward::backward(TNSR prev) {
+    return prev;
   }
 
   TNSR Tensor::exp() {
@@ -323,7 +337,14 @@ namespace tensor {
       }, tensor2->vector);
     }
 
-    return op_visit_tensors(tensor1, tensor2, std::multiplies<>(), std::multiplies<>());
+    return op_visit_tensors(
+      tensor1,
+      tensor2,
+      std::multiplies<>(),
+      std::multiplies<>(),
+      tensor::backward::mul(tensor2),
+      tensor::backward::mul(tensor1)
+    );
   }
 
   TNSR operator*(TNSR tensor, float v) {
@@ -335,7 +356,11 @@ namespace tensor {
   }
 
   TNSR operator/(TNSR tensor1, TNSR tensor2) {
-    return op_visit_tensors(tensor1, tensor2, std::divides<>(), std::divides<>());
+    return op_visit_tensors(
+        tensor1,
+        tensor2,
+        std::divides<>(),
+        std::divides<>());
   }
 
   TNSR operator/(TNSR tensor, float v) {
@@ -481,7 +506,16 @@ namespace tensor {
       }
     }
 
-    return tnsr(result)->resize(Shape{cols, rows});
+    TNSR _this = shared_from_this();
+    PARENTS prnts;
+
+    _this->_backward = tensor::backward::matMulLeft(other);
+    other->_backward = tensor::backward::matMulRight(_this);
+    prnts.push_back(_this);
+    prnts.push_back(other);
+
+    auto res = tnsr(result, tensor::backward::noOpP(_this), prnts);
+    return res->resize(Shape{cols, rows});
   }
 
   std::ostream& operator<<(std::ostream &os, PTensor &ts) {
@@ -608,6 +642,9 @@ namespace tensor {
       s << "shape mismatch: " << shape1 << " and " << shape2;
       throw std::invalid_argument(s.str());
     }
+  }
+
+  TNSR Tensor::pow(int power) {
   }
 }
 

@@ -127,9 +127,17 @@ TEST(Tensor, add2) {
     " [2,2]]");
 }
 
-TEST(Tensor, mul1) {
+TEST(Tensor, mul0) {
   auto t1 = tensor::ones(tensor::Shape{2,2});
   auto mul = 0.5 * t1;
+  expect(mul, ""
+    "[[0.5,0.5],\n"
+    " [0.5,0.5]]");
+}
+
+TEST(Tensor, mul1) {
+  auto t1 = tensor::ones(tensor::Shape{2,2});
+  auto mul = tensor::tnsr(tensor::V_VEC{0.5}) * t1;
   expect(mul, ""
     "[[0.5,0.5],\n"
     " [0.5,0.5]]");
@@ -151,6 +159,22 @@ TEST(Tensor, mul3) {
   expect(mul, ""
     "[[2,3],\n"
     " [6,11]]");
+}
+
+TEST(Tensor, div1) {
+  auto t1 = tensor::ones(tensor::Shape{2,2});
+  auto mul = t1 / 2;
+  expect(mul, ""
+    "[[0.5,0.5],\n"
+    " [0.5,0.5]]");
+}
+
+TEST(Tensor, div2) {
+  auto t1 = tensor::ones(tensor::Shape{2,2});
+  auto mul = t1 / tensor::arange(2,3);
+  expect(mul, ""
+    "[[0.5,0.5],\n"
+    " [0.5,0.5]]");
 }
 
 TEST(Tensor, resize1) {
@@ -307,7 +331,17 @@ TEST(Backprop, matmul) {
   expect(_loss->item(), 0.985463798);
 
   _loss->backward();
-  expect(W->grad, "[1]");
+  expect(_loss->grad, "[1]");
+
+  expect(X->grad, ""
+       "[[-0.1842,-0.2110,-0.1115],\n"
+       " [0.0909,0.1041,0.0550],\n"
+       " [0.0933,0.1069,0.0565]]");
+
+  expect(W->grad, ""
+       "[[-0.2554],\n"
+       " [-0.2038],\n"
+       " [ 0.1917]]");
 }
 
 TEST(Backprop, base_tensor) {

@@ -17,7 +17,7 @@ namespace tensor {
 
   class Backward {
     public:
-    virtual TNSR backward();
+    virtual TNSR backward(TNSR prev);
   };
 
   using BW = std::shared_ptr<Backward>;
@@ -36,6 +36,10 @@ namespace tensor {
     Tensor(V_VEC &v, Shape s, BW _backward) : shape(s), vector(v), _backward(_backward) {}
     Tensor(P_VEC v, Shape s, BW _backward) : shape(s), vector(v), _backward(_backward) {}
 
+    void set_backward(BW bw) {
+      this->_backward = bw;
+    }
+
     TNSR resize(const Shape &shape);
     TNSR flatten();
     TNSR T();
@@ -46,6 +50,7 @@ namespace tensor {
     TNSR exp();
     TNSR log();
     TNSR sum();
+    TNSR pow(int power);
     float item();
 
     virtual void _do_backward(TNSR prev);

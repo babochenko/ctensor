@@ -6,7 +6,7 @@ namespace tensor {
   namespace criterion {
     TNSR softmax(TNSR X) {
       auto exp = X->exp();
-      auto sum = exp->sum()->item();
+      auto sum = exp->sum();
       auto softmax = exp / sum;
 
       return softmax;
