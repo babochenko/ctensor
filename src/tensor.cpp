@@ -137,8 +137,11 @@ namespace tensor {
     _do_backward(arange(1, 2));
   }
 
-  template <typename L, typename R, typename FN = std::conditional<std::is_same<L, P_VEC>::value, TNSR, float>>
-  TNSR apply(int size, L &left, R right, std::function<FN(FN, R)> mapper) {
+  template <
+    typename L,
+    typename R,
+    typename Op>
+  TNSR apply(int size, L &left, R right, Op mapper) {
     L data;
     data.reserve(size);
 
@@ -149,19 +152,18 @@ namespace tensor {
     return tnsr(data);
   }
 
+  template <typename Op>
   TNSR op_visit_tensor_value(
     TNSR tensor1,
     float t2,
-    std::function<TNSR(TNSR, float)> t,
-    std::function<float(float, float)> v
+    Op op
   ) {
     auto dim = tensor1->shape[0];
 
-    return std::visit([&t, &v, t2, dim](auto&& t1) {
-      if constexpr (is_<decltype(t1), P_VEC>()) {
-        return apply<P_VEC, float>(dim, t1, t2, t);
-      } else if constexpr (is_<decltype(t1), V_VEC>()) {
-        return apply<V_VEC, float>(dim, t1, t2, v);
+    return std::visit([&op, t2, dim](auto&& t1) {
+      using V = decltype(t1);
+      if constexpr (is_<V, P_VEC>() || is_<V, V_VEC>()) {
+        return apply<V, float>(dim, t1, t2, op);
       } else {
         return tnsr(V_VEC{});
       }
@@ -171,31 +173,31 @@ namespace tensor {
   TNSR op_visit_tensor(TNSR tensor, std::function<float(float)> v) {
     auto dim = tensor->shape[0];
 
-    return std::visit([&v, dim](auto&& t) {
-      if constexpr (is_<decltype(t[0]), TNSR>()) {
-        P_VEC data;
-        data.reserve(dim);
+    auto visitor = [&](auto&& t, auto&& make_container, auto&& op) -> TNSR {
+      auto data = make_container();
+      data.reserve(dim);
 
-        for (size_t i = 0; i < t.size(); i++) {
-          auto result = op_visit_tensor(t[i], v);
-          data.push_back(result);
-        }
+      for (size_t i = 0; i < t.size(); i++) {
+        auto result = op(t[i]);
+        data.push_back(result);
+      }
 
-        return tnsr(data);
+      return tnsr(data);
+    };
 
-      } else if constexpr (is_<decltype(t[0]), float>()) {
-        V_VEC data;
-        data.reserve(dim);
+    return std::visit([&](auto&& t) {
+      using ELMNT = decltype(t[0]);
 
-        for (size_t i = 0; i < t.size(); i++) {
-          auto result = v(t[i]);
-          data.push_back(result);
-        }
+      if constexpr (is_<ELMNT, TNSR>()) {
+        return visitor(t, []() { return P_VEC(); }, [&v](auto&& el) { return op_visit_tensor(el, v); });
 
-        return tnsr(data);
+      } else if constexpr (is_<ELMNT, float>()) {
+        return visitor(t, []() { return V_VEC(); }, [&v](auto&& el) { return v(el); });
+
       } else {
         V_VEC data;
         return tnsr(data);
+
       }
     }, tensor->vector);
   }
@@ -204,12 +206,13 @@ namespace tensor {
     auto dim = tensor->shape[0];
 
     std::visit([&v, dim](auto&& t) {
-      if constexpr (is_<decltype(t[0]), TNSR>()) {
+      using ELMNT = decltype(t[0]);
+      if constexpr (is_<ELMNT, TNSR>()) {
         for (size_t i = 0; i < t.size(); i++) {
           op_visit_tensor_inplace(t[i], v);
         }
 
-      } else if constexpr (is_<decltype(t[0]), float>()) {
+      } else if constexpr (is_<ELMNT, float>()) {
         for (size_t i = 0; i < t.size(); i++) {
           v(t[i]);
         }
@@ -217,14 +220,30 @@ namespace tensor {
     }, tensor->vector);
   }
 
+  template <typename Op>
   TNSR op_visit_tensors(
     TNSR &tensor1,
     TNSR &tensor2,
-    std::function<TNSR(TNSR, TNSR)> t,
-    std::function<float(float, float)> v,
+    Op op,
     BW t1bw,
     BW t2bw
   ) {
+    if (tensor2->shape == Shape{1}) {
+      return std::visit([&tensor1, &op](auto&& vec) {
+        float data;
+        if constexpr (is_<decltype(vec), V_VEC>()) {
+          data = vec[0];
+        } else {
+          data = vec[0]->item();
+        }
+
+        return op_visit_tensor_value(
+            tensor1,
+            data,
+            op);
+      }, tensor2->vector);
+    }
+
     compare_shapes(tensor1->shape, tensor2->shape);
 
     auto dim = tensor1->shape[0];
@@ -233,14 +252,14 @@ namespace tensor {
     tensor2->set_backward(t2bw);
     PARENTS prnts{tensor1, tensor2};
 
-    return std::visit([&prnts, &t, &v, dim](auto&& t1, auto&& t2) {
+    return std::visit([&prnts, &op, dim](auto&& t1, auto&& t2) {
       if constexpr (is_<decltype(t1[0]), TNSR>() && is_<decltype(t2[0]), TNSR>()) {
         P_VEC data;
         data.reserve(dim);
 
         for (size_t i = 0; i < t1.size(); i++) {
           auto x = t1[i];
-          auto res = t(t1[i], t2[i]);
+          auto res = op(t1[i], t2[i]);
           data.push_back(res);
         }
 
@@ -251,7 +270,7 @@ namespace tensor {
         data.reserve(dim);
 
         for (size_t i = 0; i < t1.size(); i++) {
-          auto res = v(t1[i], t2[i]);
+          auto res = op(t1[i], t2[i]);
           data.push_back(res);
         }
 
@@ -267,7 +286,6 @@ namespace tensor {
     return op_visit_tensors(
       tensor1,
       tensor2,
-      std::plus<>(),
       std::plus<>(),
       tensor::backward::noOpP(tensor1),
       tensor::backward::noOpP(tensor2)
@@ -341,7 +359,6 @@ namespace tensor {
       tensor1,
       tensor2,
       std::multiplies<>(),
-      std::multiplies<>(),
       tensor::backward::mul(tensor2),
       tensor::backward::mul(tensor1)
     );
@@ -359,7 +376,6 @@ namespace tensor {
     return op_visit_tensors(
         tensor1,
         tensor2,
-        std::divides<>(),
         std::divides<>());
   }
 
@@ -645,6 +661,11 @@ namespace tensor {
   }
 
   TNSR Tensor::pow(int power) {
+    TNSR t = shared_from_this();
+    return op_visit_tensors(
+        t,
+        tnsr(V_VEC{(float) power}),
+        std::plus<>());
   }
 }
 

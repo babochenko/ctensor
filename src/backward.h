@@ -92,8 +92,12 @@ namespace tensor {
       Pow(TNSR data, int power) : data(data), power(power) {}
 
       TNSR backward(TNSR prev) override {
-        data->po
-        return other->T()->mul(prev);
+        int newPow = power - 1;
+        auto res = data->pow(power - 1);
+        if (newPow < 0) {
+          res = -res;
+        }
+        return res;
       }
     };
 
