@@ -48,7 +48,7 @@ namespace tensor {
 
   float Tensor::item() {
     TNSR t = shared_from_this();
-    compare_shapes(t->shape, Shape{1});
+    compare(t->shape, Shape{1}, "item() shapes");
 
     return std::visit([](auto&& v) {
       if constexpr (is_<decltype(v), P_VEC>()) {
@@ -66,7 +66,7 @@ namespace tensor {
 
   void Tensor::_do_backward(TNSR prev) {
     if (this->_backward) {
-      this->grad = this->_backward->backward(prev);
+      this->grad = this->_backward(prev);
       if (!this->grad) {
         throw std::runtime_error("Gradient not properly initialized.");
       }
@@ -104,18 +104,24 @@ namespace tensor {
     return func::map(tensor, std::negate<>());
   }
 
-  TNSR Backward::backward(TNSR prev) {
-    return prev;
-  }
-
   TNSR Tensor::exp() {
-    TNSR t = shared_from_this();
-    return func::map(t, std::expf);
+    auto t = shared_from_this();
+    auto res = func::map(t, std::expf);
+
+    PARENTS prnts{t};
+    auto bw = tensor::backward::exp(res);
+    res->set_backward(bw, prnts);
+    return res;
   }
 
   TNSR Tensor::log() {
     TNSR t = shared_from_this();
-    return func::map(t, std::logf);
+    auto res = func::map(t, std::logf);
+
+    PARENTS prnts{t};
+    auto bw = tensor::backward::exp(res);
+    res->set_backward(bw, prnts);
+    return res;
   }
 
   TNSR Tensor::sum() {
@@ -142,7 +148,9 @@ namespace tensor {
   }
 
   TNSR operator*(TNSR tensor1, TNSR tensor2) {
-    if (tensor2->shape == Shape{1}) {
+    if (tensor1->shape == Shape{1}) {
+      return func::map(tensor2, tensor1->item(), std::multiplies<>());
+    } else if (tensor2->shape == Shape{1}) {
       return func::map(tensor1, tensor2->item(), std::multiplies<>());
     }
 
@@ -222,7 +230,7 @@ namespace tensor {
     if (sz1 != sz2) {
       Shape shp = shape;
       std::stringstream s;
-      s << "shape mismatch: " << sz2 << " and " << shp;
+      s << "shape product mismatch: " << sz2 << " and " << shp;
       throw std::invalid_argument(s.str());
     }
 
@@ -260,16 +268,11 @@ namespace tensor {
   float Tensor::dot(TNSR other) {
     TNSR t = shared_from_this();
     auto t_shape = t->shape;
-    compare_shapes(t_shape, other->shape);
+    compare(t_shape, other->shape, "dot() shapes");
 
-
-    auto valid = t_shape.size() == 1;
-    if (!valid) {
-      std::stringstream s;
-      s << "invalid shapes: " << t_shape << " and " << other->shape;
-      throw std::invalid_argument(s.str());
-      return 0.0f;
-    }
+    int x = t_shape.size();
+    int y = 1;
+    compare(x, y, t_shape, other->shape, "dot() shape sizes");
 
     auto len = t_shape[t_shape.size() == 1 ? 0 : 1];
 
@@ -291,7 +294,7 @@ namespace tensor {
 
   TNSR Tensor::mul(TNSR other) {
     auto t = other->T();
-    compare_shapes(shape, t->shape, 1);
+    compare(shape[1], t->shape[1], shape, t->shape, "mul() shapes");
 
     auto cols = shape[0];
     auto rows = t->shape[0];
@@ -299,15 +302,17 @@ namespace tensor {
     auto result = V_VEC();
     result.reserve(cols * rows);
 
-    for (auto i = 0; i < shape[0]; i++) {
-      for (auto j = 0; j < t->shape[0]; j++) {
-        std::visit([&result, i, j](auto&& c1, auto&& c2) {
-          if constexpr (is_<decltype(c1), P_VEC>() && is_<decltype(c2), P_VEC>()) {
-            result.push_back(c1[i]->dot(c2[j]));
+    std::visit([&](auto&& vec1, auto&& vec2) {
+      using V1 = decltype(vec1);
+      using V2 = decltype(vec2);
+      if constexpr (is_<V1, P_VEC>() && is_<V2, P_VEC>()) {
+        for (auto i = 0; i < cols; i++) {
+          for (auto j = 0; j < rows; j++) {
+            result.push_back(vec1[i]->dot(vec2[j]));
           }
-        }, this->vector, t->vector);
+        }
       }
-    }
+    }, this->vector, t->vector);
 
     TNSR _this = shared_from_this();
     PARENTS prnts;
@@ -372,7 +377,8 @@ namespace tensor {
     return arange(start, endExclusive)->resize(shape);
   }
 
-  TNSR _fill(const Shape &shape, int depth, std::function<float()> fill) {
+  template <typename Op>
+  TNSR _fill(const Shape &shape, int depth, Op fill) {
     if (depth == shape.size() - 1) {
       V_VEC v;
       v.reserve(shape[depth]);
@@ -394,7 +400,8 @@ namespace tensor {
     return tnsr(data);
   }
 
-  TNSR fill(const Shape &shape, std::function<float()> fill) {
+  template <typename Op>
+  TNSR fill(const Shape &shape, Op fill) {
     if (shape.empty()) {
       throw std::invalid_argument("empty shape");
     }
@@ -428,22 +435,6 @@ namespace tensor {
 
     TNSR uniform(const Shape &shape) {
       return uniform(0.0, 1.0, shape);
-    }
-  }
-
-  void compare_shapes(Shape shape1, Shape shape2) {
-    if (shape1 != shape2) {
-      std::stringstream s;
-      s << "shape mismatch: " << shape1 << " and " << shape2;
-      throw std::invalid_argument(s.str());
-    }
-  }
-
-  void compare_shapes(Shape shape1, Shape shape2, size_t idx) {
-    if (shape1[idx] != shape2[idx]) {
-      std::stringstream s;
-      s << "shape mismatch: " << shape1 << " and " << shape2;
-      throw std::invalid_argument(s.str());
     }
   }
 

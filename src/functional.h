@@ -91,7 +91,7 @@ namespace func {
       return func::map(tensor1, tensor2->item(), op);
     }
 
-    tensor::compare_shapes(tensor1->shape, tensor2->shape);
+    tensor::compare(tensor1->shape, tensor2->shape, "merge() shapes");
 
     tensor1->set_backward(t1bw);
     tensor2->set_backward(t2bw);

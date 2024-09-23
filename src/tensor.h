@@ -22,13 +22,7 @@ namespace tensor {
   using P_VEC = std::vector<TNSR>;
   using V_VEC = std::vector<float>;
   using PARENTS = std::vector<TNSR>;
-
-  class Backward {
-    public:
-    virtual TNSR backward(TNSR prev);
-  };
-
-  using BW = std::shared_ptr<Backward>;
+  using BW = std::function<TNSR(TNSR)>;
 
   class Tensor : public std::enable_shared_from_this<Tensor> {
     using Vec = std::variant<V_VEC, P_VEC>;
@@ -99,7 +93,7 @@ namespace tensor {
 
   template <>
   inline Shape _shape(V_VEC v) {
-    return Shape{1, static_cast<int>(v.size())};
+    return Shape{static_cast<int>(v.size())};
   }
 
   template <>
@@ -158,7 +152,22 @@ namespace tensor {
   TNSR operator/(TNSR tensor, float v);
   TNSR operator/(float v, TNSR tensor);
 
-  void compare_shapes(Shape shape1, Shape shape2);
-  void compare_shapes(Shape shape1, Shape shape2, size_t idx);
+  template <typename T>
+  void compare(T t1, T t2, const char* description) {
+    if (t1 != t2) {
+      std::stringstream s;
+      s << description << " mismatch: " << t1 << " and " << t2;
+      throw std::invalid_argument(s.str());
+    }
+  }
+
+  template <typename T, typename COUT>
+  void compare(T t1, T t2, COUT c1, COUT c2, const char* description) {
+    if (t1 != t2) {
+      std::stringstream s;
+      s << description << " mismatch: " << c1 << " and " << c2;
+      throw std::invalid_argument(s.str());
+    }
+  }
 }
 
