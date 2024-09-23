@@ -1,6 +1,7 @@
 #pragma once
 
 #include "tensor.h"
+#include "backward.h"
 
 namespace tensor {
   namespace backward {
@@ -11,39 +12,24 @@ namespace tensor {
       }
     };
 
-    class NoOpV : public Backward {
-      private:
-      V_VEC data;
-
-      public:
-      NoOpV(V_VEC data) : data(data) {}
-
-      TNSR backward(TNSR prev) override {
-        return tensor::ones(Shape(1, data.size())) * prev;
-      }
-    };
-
     class NoOp : public Backward {
-      private:
-      P_VEC data;
-
-      public:
-      NoOp(P_VEC data) : data(data) {}
-
       TNSR backward(TNSR prev) override {
-        return tensor::ones(_shape(data)) * prev;
       }
     };
 
-    class NoOpP : public Backward {
+    template <typename V>
+    class Ones : public Backward {
       private:
-      TNSR data;
+      V data;
+      Shape shape;
 
       public:
-      NoOpP(TNSR data) : data(data) {}
+      Ones(V data) : data(data) {
+        this->shape = _shape(data);
+      }
 
       TNSR backward(TNSR prev) override {
-        return tensor::ones(data->shape) * prev;
+        return tensor::ones(shape) * prev;
       }
     };
 
@@ -101,20 +87,17 @@ namespace tensor {
       }
     };
 
+    BW noOp() {
+      return std::make_shared<NoOp>();
+    }
+
     BW sum() {
       return std::make_shared<Sum>();
     }
 
-    BW noOpV(V_VEC data) {
-      return std::make_shared<NoOpV>(data);
-    }
-
-    BW noOp(P_VEC data) {
-      return std::make_shared<NoOp>(data);
-    }
-
-    BW noOpP(TNSR data) {
-      return std::make_shared<NoOpP>(data);
+    template <typename V>
+    BW ones(V data) {
+      return std::make_shared<Ones<V>>(data);
     }
 
     BW mul(TNSR data) {

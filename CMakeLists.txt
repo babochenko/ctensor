@@ -8,9 +8,19 @@ project(ctensor)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Include the header files
-include_directories(include)
+set(SOURCES
+  src/criterion.cpp
+  src/tensor.cpp
+  src/main.cpp
+)
+
+set(HEADERS
+  src/backward.h
+  src/criterion.h
+  src/functional.h
+  src/tensor.h
+)
 
 # Add the executable
-add_executable(ctensor src/main.cpp src/tensor.cpp)
+add_executable(ctensor ${SOURCES})
 

@@ -1,5 +1,4 @@
 #include "tensor.h"
-
 #include "criterion.h"
 
 namespace tensor {
